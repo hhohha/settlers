@@ -1,5 +1,10 @@
 from enum import Enum
 
+class GameStage(Enum):
+    NONE = 0
+    LANDSCAPE_SETUP = 1
+    CHOOSE_CARDS = 2      # TODO - rename
+
 class BuildingType(Enum):
     WAREHOUSE = 0
     MILL = 1
@@ -22,7 +27,7 @@ class BuildingType(Enum):
     AQUADUCT = 18
 
 class ActionCardType(Enum):
-    ALCHYMIST = 0
+    ALCHEMIST = 0
     BISHOP = 1
     ARSON = 2
     TRADER = 3
