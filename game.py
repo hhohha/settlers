@@ -16,8 +16,9 @@ class Game:
         self.activePlayer = Player(1)
         self.nonactivePlayer = Player(2)
         self.board: Board = Board(Pos(*config.MAIN_BOARD_SIZE))
-        self.myCardBoard = Board(Pos(*config.PLAYER_CARDS_BOARD_SIZE))
+        self.handBoard = Board(Pos(*config.HAND_BOARD_SIZE))
         self.choiceBoard = Board(Pos(*config.CHOICE_BOARD_SIZE))
+        self.bigCard = Board(Pos(1, 1))
         self.cardPiles: List[List[Card]] = [[] for _ in range(config.PILE_COUNT)]
         self.eventCards: List[Event] = []
         self.landscapeCards: List[Landscape] = []
@@ -34,7 +35,10 @@ class Game:
         self.towns: int = config.TOWNS_COUNT
 
         self.create_cards()
-        self.init_board()
+        self.init_main_board()
+        self.init_hand_board()
+        self.init_choice_board()
+        self.init_big_card()
 
     def player_action_choose_starting_cards(self):
         if self.mouseClicks and self.board.get_square(self.mouseClicks[-1]).name == 'back':
@@ -75,7 +79,18 @@ class Game:
         else:
             raise ValueError(f'cannot create more infra cards of type: {cardType}')
 
-    def init_board(self):
+    def init_big_card(self):
+        self.bigCard.set_square(Pos(0, 0), MetaCard('empty'))
+
+    def init_hand_board(self):
+        for pos in (Pos(x, y) for x in range(self.handBoard.size.x) for y in range(self.handBoard.size.y)):
+            self.handBoard.set_square(pos, MetaCard('empty'))
+
+    def init_choice_board(self):
+        for pos in (Pos(x, y) for x in range(self.choiceBoard.size.x) for y in range(self.choiceBoard.size.y)):
+            self.choiceBoard.set_square(pos, MetaCard('empty'))
+
+    def init_main_board(self):
         for pos in (Pos(x, y) for x in range(self.board.size.x) for y in range(self.board.size.y)):
             self.board.set_square(pos, MetaCard('empty'))
 

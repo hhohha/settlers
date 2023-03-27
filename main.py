@@ -12,7 +12,7 @@ def main():
     pg.init()
     boardSizeX, boardSizeY = config.MAIN_BOARD_SIZE
     space = config.CARD_IMG_SPACING
-    screenSizeX = (config.CARD_IMG_SIZE_SMALL[0] + space * 2) * boardSizeX
+    screenSizeX = (config.CARD_IMG_SIZE_SMALL[0] + space * 2) * (boardSizeX + max(config.HAND_BOARD_SIZE[0], config.CHOICE_BOARD_SIZE[0])) + config.RIGHT_BOARDS_SPACE + space
     screenSizeY = (config.CARD_IMG_SIZE_SMALL[1] + space * 2) * boardSizeY
     screen = pg.display.set_mode((screenSizeX, screenSizeY))
     clock = pg.time.Clock()
@@ -25,6 +25,14 @@ def main():
     screen.fill(config.BACKGROUND_IMAGE)
     cardSizeX, cardSizeY = config.CARD_IMG_SIZE_SMALL
 
+    handBoardOffsetX = config.MAIN_BOARD_SIZE[0] * (config.CARD_IMG_SIZE_SMALL[0] + 2*space) + space + config.RIGHT_BOARDS_SPACE
+    handBoardOffsetY = (config.MAIN_BOARD_SIZE[1] - config.HAND_BOARD_SIZE[1]) * (config.CARD_IMG_SIZE_SMALL[1] + 2*space) + space
+    choiceBoardOffsetX = handBoardOffsetX
+    choiceBoardOffsetY = 0
+
+    bigCardOffsetX = handBoardOffsetX
+    bigCardOffsetY = config.CHOICE_BOARD_SIZE[1] * (config.CARD_IMG_SIZE_SMALL[1] + 2*space)
+
     while True:
         for event in pg.event.get():
             if event.type is pg.QUIT:
@@ -34,6 +42,15 @@ def main():
         for square in game.board.editedSquares:
             img = pg.transform.scale(IMAGES[game.board.squares[square.x + config.MAIN_BOARD_SIZE[0] * square.y].name], config.CARD_IMG_SIZE_SMALL)
             screen.blit(img, (square.x * (cardSizeX + space*2) + space, square.y * (cardSizeY + space*2) + space))
+        for square in game.handBoard.editedSquares:
+            img = pg.transform.scale(IMAGES[game.handBoard.squares[square.x + config.HAND_BOARD_SIZE[0] * square.y].name], config.CARD_IMG_SIZE_SMALL)
+            screen.blit(img, (square.x * (cardSizeX + space * 2) + space + handBoardOffsetX, square.y * (cardSizeY + space * 2) + space + handBoardOffsetY))
+        for square in game.choiceBoard.editedSquares:
+            img = pg.transform.scale(IMAGES[game.choiceBoard.squares[square.x + config.CHOICE_BOARD_SIZE[0] * square.y].name], config.CARD_IMG_SIZE_SMALL)
+            screen.blit(img, (square.x * (cardSizeX + space * 2) + space + choiceBoardOffsetX, square.y * (cardSizeY + space * 2) + space + choiceBoardOffsetY))
+        for square in game.bigCard.editedSquares:
+            img = pg.transform.scale(IMAGES[game.bigCard.squares[square.x + config.CHOICE_BOARD_SIZE[0] * square.y].name], config.CARD_IMG_SIZE_BIG)
+            screen.blit(img, (space + bigCardOffsetX, space + bigCardOffsetY))
         game.board.editedSquares.clear()
         clock.tick(30)
         pg.display.flip()
