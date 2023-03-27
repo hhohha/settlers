@@ -4,7 +4,7 @@ from typing import List, Optional, Type, Tuple
 from board import Board
 from card import Card, Fleet, Knight, Building, Action, Event, Landscape, Village, Town, Path, MetaCard
 from enums import ActionType, DiceEvent, EventCardType, GameStage
-from card_data import KNIGHT_LIST, ACTION_CARD_LIST, BUILDING_LIST, FLEET_LIST, EVENT_CARD_LIST, LANDSCAPE_CARD_LIST
+from card_data import CardData
 from player import Player
 import config
 from util import DiceEvents, Pos
@@ -20,7 +20,7 @@ class Game:
         self.choiceBoard = Board(Pos(*config.CHOICE_BOARD_SIZE))
         self.bigCard = Board(Pos(1, 1))
         self.cardPiles: List[List[Card]] = [[] for _ in range(config.PILE_COUNT)]
-        self.eventCards: List[Event] = []
+        self.eventCards: List[Event] = CardData.create_event_cards()
         self.landscapeCards: List[Landscape] = []
         self.infraCardsLeft = {
             Village: config.VILLAGES_COUNT,
@@ -34,7 +34,8 @@ class Game:
         self.villages: int = config.VILLAGES_COUNT
         self.towns: int = config.TOWNS_COUNT
 
-        self.create_cards()
+        self.setup_landscape_cards()
+        self.setup_playable_cards()
         self.init_main_board()
         self.init_hand_board()
         self.init_choice_board()
@@ -110,86 +111,28 @@ class Game:
         for x in range(8, 13):
             self.board.set_square(Pos(x, 5), MetaCard('back')) # TODO - set this up relative to right side
 
+    def setup_landscape_cards(self):
+        for card in CardData.create_landscape_cards(self.activePlayer, self.nonactivePlayer):
+            if card.player is None:
+                self.landscapeCards.append(card)
+            else:
+                card.player.landscapeCards.append(card)
 
-    def create_cards(self):
-        self.create_landscape_cards()
-        self.create_event_cards()
-        self.create_playable_cards()
+    def setup_playable_cards(self) -> None:
+        cards: List[Card] = CardData.create_playable_cards()
+        pileSize = len(cards) // len(self.cardPiles)
+        extraCards = len(cards) % len(self.cardPiles)
+        startIdx, endIdx = 0, pileSize
 
-    def create_landscape_cards(self):
-        cards: List[Landscape] = []
-
-        for landscapeCard in LANDSCAPE_CARD_LIST:
-            for _ in range(landscapeCard['count']):
-                card = Landscape(
-                    landscapeCard['name'],
-                    landscapeCard['resource'],
-                    landscapeCard['dice']
-                )
-
-                if landscapeCard['player'] is None:
-                    cards.append(card)
-                elif landscapeCard['player'] == 1:
-                    card.player = self.activePlayer
-                    self.activePlayer.landscapeCards.append(card)
-                elif landscapeCard['player'] == 2:
-                    card.player = self.nonactivePlayer
-                    self.nonactivePlayer.landscapeCards.append(card)
-                else:
-                    raise ValueError(f"invalid player: {landscapeCard['player']}")
-
-        while cards:
-            idx = random.randint(0, len(cards) - 1)
-            self.landscapeCards.append(cards.pop(idx))
+        for idx, _ in enumerate(self.cardPiles):
+            if extraCards > 0:
+                extraCards -= 1
+                endIdx += 1
+            self.cardPiles[idx] = cards[startIdx:endIdx]
+            startIdx = endIdx
+            endIdx += pileSize
 
 
-    def create_event_cards(self):
-        cards: List[Event] = []
-        for eventCard in EVENT_CARD_LIST:
-            for _ in range(eventCard['count']):
-                cards.append(Event(eventCard['name'], eventCard['type']))
-
-        idx = random.randint(0, len(cards) - 1)
-        self.eventCards.append(cards.pop(idx))
-
-    def create_playable_cards(self) -> None:
-        cards: List[Card] = []
-        for fleetData in FLEET_LIST:
-            cards.append(Fleet(
-                fleetData['name'],
-                fleetData['cost'],
-                fleetData['resource'],
-                fleetData['trade_points']
-            ))
-
-        for knightData in KNIGHT_LIST:
-            cards.append(Knight(
-                knightData['name'],
-                knightData['cost'],
-                knightData['tournament_strength'],
-                knightData['battle_strength']
-            ))
-
-        for buildingData in BUILDING_LIST:
-            for _ in range(buildingData['count']):
-                cards.append(Building(
-                    buildingData['name'],
-                    buildingData['type'],
-                    buildingData['cost'],
-                    buildingData['town_only'],
-                    buildingData['victory_points'],
-                    buildingData['trade_points']
-                ))
-
-        for actionCardData in ACTION_CARD_LIST:
-            for _ in range(actionCardData['count']):
-                cards.append(Action(actionCardData['name'], actionCardData['type']))
-
-        i = 0
-        while cards:
-            idx = random.randint(0, len(cards) - 1)
-            self.cardPiles[i].append(cards.pop(idx))
-            i = 0 if i == len(self.cardPiles) - 1 else i + 1
 
     def is_victory(self) -> bool:
         return self.activePlayer.victoryPoints >= config.VICTORY_POINTS or self.nonactivePlayer.victoryPoints >= config.VICTORY_POINTS
