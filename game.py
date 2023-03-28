@@ -15,10 +15,13 @@ class Game:
         self.eventCards = []
         self.activePlayer = Player(1)
         self.nonactivePlayer = Player(2)
+
         self.board: Board = Board(Pos(*config.MAIN_BOARD_SIZE))
         self.handBoard = Board(Pos(*config.HAND_BOARD_SIZE))
         self.choiceBoard = Board(Pos(*config.CHOICE_BOARD_SIZE))
         self.bigCard = Board(Pos(1, 1))
+        self.buttons = Board(Pos(2, 3))
+
         self.cardPiles: List[List[Card]] = [[] for _ in range(config.PILE_COUNT)]
         self.eventCards: List[Event] = CardData.create_event_cards()
         self.landscapeCards: List[Landscape] = []
@@ -40,6 +43,8 @@ class Game:
         self.init_hand_board()
         self.init_choice_board()
         self.init_big_card()
+        self.init_buttons()
+        self.stage = GameStage.LANDSCAPE_SETUP   # the first action of the game
 
     def player_action_choose_starting_cards(self):
         if self.mouseClicks and self.board.get_square(self.mouseClicks[-1]).name == 'back':
@@ -83,6 +88,10 @@ class Game:
     def init_big_card(self):
         self.bigCard.set_square(Pos(0, 0), MetaCard('empty'))
 
+    def init_buttons(self):
+        for pos in (Pos(x, y) for x in range(self.buttons.size.x) for y in range(self.buttons.size.y)):
+            self.buttons.set_square(pos, MetaCard('empty'))
+
     def init_hand_board(self):
         for pos in (Pos(x, y) for x in range(self.handBoard.size.x) for y in range(self.handBoard.size.y)):
             self.handBoard.set_square(pos, MetaCard('empty'))
@@ -100,7 +109,6 @@ class Game:
         self.board.set_square(Pos(5, 8), self.create_infra_card(Village))
         for lCard, pos in zip(self.activePlayer.landscapeCards, [Pos(4, 9), Pos(6, 9), Pos(8, 9), Pos(4, 7), Pos(6, 7), Pos(8, 7)]):
             self.board.set_square(pos, lCard)
-            self.stage = GameStage.LANDSCAPE_SETUP
 
         self.board.set_square(Pos(0, 5), MetaCard('back_event'))
         self.board.set_square(Pos(1, 5), MetaCard('back_land'))
@@ -131,7 +139,6 @@ class Game:
             self.cardPiles[idx] = cards[startIdx:endIdx]
             startIdx = endIdx
             endIdx += pileSize
-
 
 
     def is_victory(self) -> bool:

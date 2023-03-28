@@ -15,3 +15,7 @@ class Board:
     def set_square(self, pos: Pos, card: Card) -> None:
         self.squares[pos.x + self.size.x * pos.y] = card
         self.editedSquares.append(pos)
+
+    def get_edited_squares(self):
+        while self.editedSquares:
+            yield self.editedSquares.pop()
