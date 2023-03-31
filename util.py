@@ -1,5 +1,8 @@
+from typing import Union, Tuple
+
 from dataclasses import dataclass
 from enums import DiceEvent
+
 
 @dataclass(frozen=True)
 class Cost:
@@ -9,10 +12,38 @@ class Cost:
     brick: int = 0
     wood: int = 0
 
+
 @dataclass(frozen=True)
 class Pos:
     x: int
     y: int
+
+    def __add__(self, other: Union['Pos', int]) -> 'Pos':
+        if isinstance(other, Pos):
+            return Pos(self.x + other.x, self.y + other.y)
+        else:
+            return Pos(self.x + other, self.y + other)
+
+    def __mul__(self, other: Union['Pos', int]) -> 'Pos':
+        if isinstance(other, Pos):
+            return Pos(self.x * other.x, self.y * other.y)
+        else:
+            return Pos(self.x * other, self.y * other)
+
+    def up(self, n: int) -> 'Pos':
+        return Pos(self.x, self.y - n)
+
+    def down(self, n: int) -> 'Pos':
+        return Pos(self.x, self.y + n)
+
+    def right(self, n: int) -> 'Pos':
+        return Pos(self.x + n, self.y)
+
+    def left(self, n: int) -> 'Pos':
+        return Pos(self.x - n, self.y)
+
+    def tuple(self) -> Tuple[int, int]:
+        return self.x, self.y
 
 DiceEvents = {
     1: DiceEvent.TOURNAMENT,

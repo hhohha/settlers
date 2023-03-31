@@ -16,9 +16,9 @@ class Game:
         self.activePlayer = Player(1)
         self.nonactivePlayer = Player(2)
 
-        self.board: Board = Board(Pos(*config.MAIN_BOARD_SIZE))
-        self.handBoard = Board(Pos(*config.HAND_BOARD_SIZE))
-        self.choiceBoard = Board(Pos(*config.CHOICE_BOARD_SIZE))
+        self.board: Board = Board(Pos(*config.MAIN_BOARD_SQUARES))
+        self.handBoard = Board(Pos(*config.HAND_BOARD_SQUARES))
+        self.choiceBoard = Board(Pos(*config.CHOICE_BOARD_SQUARES))
         self.bigCard = Board(Pos(1, 1))
         self.buttons = Board(Pos(2, 3))
 
