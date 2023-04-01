@@ -1,20 +1,18 @@
 import random
-from typing import List, Optional, Type, Tuple
-
+from typing import List, Optional, Type, Tuple, TYPE_CHECKING
 from board import Board
-from card import Card, Fleet, Knight, Building, Action, Event, Landscape, Village, Town, Path, MetaCard
-from enums import ActionType, DiceEvent, EventCardType, GameStage
+from enums import ActionType, DiceEvent, EventCardType, GameStage, Button
 from card_data import CardData
 from player import Player
 import config
 from util import DiceEvents, Pos
-
+from card import Card, Event, Landscape, Village, Town, Path, MetaCard
 
 class Game:
     def __init__(self):
         self.eventCards = []
-        self.activePlayer = Player(1)
-        self.nonactivePlayer = Player(2)
+        self.activePlayer = Player(self, 1)
+        self.nonactivePlayer = Player(self, 2)
 
         self.board: Board = Board(Pos(*config.MAIN_BOARD_SQUARES), Pos(*config.CARD_IMG_SIZE_SMALL))
         self.handBoard = Board(Pos(*config.HAND_BOARD_SQUARES), Pos(*config.CARD_IMG_SIZE_SMALL))
@@ -23,6 +21,9 @@ class Game:
         self.buttons = Board(Pos(*config.BUTTON_BOARD_SQUARES), Pos(*config.BUTTON_SIZE))
 
         self.cardPiles: List[List[Card]] = [[] for _ in range(config.PILE_COUNT)]
+        self.pileSelected: Optional[List[Card]] = None
+        self.cardSelected: Optional[Card] = None
+
         self.eventCards: List[Event] = CardData.create_event_cards()
         self.landscapeCards: List[Landscape] = []
         self.infraCardsLeft = {
@@ -30,7 +31,7 @@ class Game:
             Path: config.PATHS_COUNT,
             Town: config.TOWNS_COUNT
         }
-        self.mouseClicks: List[Pos] = []
+        self.mouseClicks: List[Tuple[Board, Pos]] = []
         self.stage: GameStage = GameStage.NONE
 
         self.paths: int = config.PATHS_COUNT
@@ -46,37 +47,83 @@ class Game:
         self.init_buttons()
         self.stage = GameStage.LANDSCAPE_SETUP   # the first action of the game
 
-    def player_action_choose_starting_cards(self):
-        if self.mouseClicks and self.board.get_square(self.mouseClicks[-1]).name == 'back':
-            pileNo = self.mouseClicks[-1].x - self.board.size.x + len(self.cardPiles)
-            for pile in self.cardPiles:
-                print(len(pile))
-            #for card in self.cardPiles[pileNo]:
-            #    pass
+    def respond_to_player_action(self):
+        if self.stage == GameStage.LANDSCAPE_SETUP:
+            print(f'game stage: landscape setup')
+            self.player_action_land_setup()
+        elif self.stage == GameStage.CHOOSE_STARING_CARDS:
+            print(f'game stage: choosing starting cards')
+            self.player_action_choose_starting_cards()
 
+    def button_clicked(self) -> Optional[int]:
+        if not self.mouseClicks:
+            return None
 
-    def player_action_land_setup(self):
-        if self.mouseClicks and self.mouseClicks[-1] == Pos(0, 0):
-            self.stage = GameStage.CHOOSE_CARDS
-        if len(self.mouseClicks) >= 2:
-            pos1, pos2 = self.mouseClicks[0], self.mouseClicks[1]
-            card1, card2 = self.board.get_square(pos1), self.board.get_square(pos2)
-            if isinstance(card1, Landscape) and isinstance(card2, Landscape) and card1.player is self.activePlayer and card2.player is self.activePlayer:
-                self.board.set_square(pos1, card2)
-                self.board.set_square(pos2, card1)
+        board, square = self.mouseClicks[-1]
+        if board is not self.buttons:
+            return None
+
+        return square.x + square.y * self.buttons.size.x
+
+    def player_action_land_setup(self) -> None:
+        # has player finished landscape? If so, moving to choosing cards
+        if self.button_clicked() == Button.OK.value:
+            self.stage = GameStage.CHOOSE_STARING_CARDS
             self.mouseClicks.clear()
 
-    def event_mouse_click(self, pos: Tuple[int, int]):
-        cardSizeX, cardSizeY = config.CARD_IMG_SIZE_SMALL
-        x, y = pos
-        x = x // (cardSizeX + config.CARD_IMG_SPACING * 2)
-        y = y // (cardSizeY + config.CARD_IMG_SPACING * 2)
-        self.mouseClicks.append(Pos(x, y))
+        if len(self.mouseClicks) < 2:
+            return
 
-        if self.stage == GameStage.LANDSCAPE_SETUP:
-            self.player_action_land_setup()
-        elif self.stage == GameStage.CHOOSE_CARDS:
-            self.player_action_choose_starting_cards()
+        board1, pos1 = self.mouseClicks[-1]
+        board2, pos2 = self.mouseClicks[-2]
+
+        if board1 is not self.board or board2 is not self.board:
+            return
+
+        card1, card2 = self.board.get_square(pos1), self.board.get_square(pos2)
+        if isinstance(card1, Landscape) and isinstance(card2, Landscape) and card1.player is self.activePlayer and card2.player is self.activePlayer:
+            self.board.set_square(pos1, card2)
+            self.board.set_square(pos2, card1)
+            self.mouseClicks.clear()
+
+    def select_pile(self) -> None:
+        print('selecting pile')
+        if not self.mouseClicks:
+            return
+
+        board, pos = self.mouseClicks[-1]
+        if board is not self.board or self.board.get_square(pos).name != 'back':
+            return
+
+        selectedPileIdx = pos.x - board.size.x + len(self.cardPiles)
+        self.pileSelected = self.cardPiles[selectedPileIdx]
+        self.mouseClicks.clear()
+
+        self.init_choice_board()
+        pos = Pos(0, 0)
+        for card in self.pileSelected:
+            self.choiceBoard.set_next_square(card)
+
+    def player_action_choose_starting_cards(self):
+        if self.pileSelected is None:
+            self.select_pile()
+            return
+
+        if not self.mouseClicks:
+            return
+
+        if self.cardSelected is not None and self.button_clicked() == Button.OK.value:
+            self.activePlayer.take_card(self.cardSelected)
+            self.pileSelected.pop()
+
+
+        board, pos = self.mouseClicks[-1]
+        if board is not self.choiceBoard or board.get_square(pos).name == 'empty':
+            return
+
+        self.cardSelected = board.get_square(pos)
+        self.bigCard.set_square(Pos(0, 0), self.cardSelected)
+
 
     def create_infra_card(self, cardType: Type[Village | Path | Town]):
         if self.infraCardsLeft[cardType] > 0:

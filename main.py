@@ -52,10 +52,11 @@ def main():
             if event.type is pg.QUIT:
                 return
             if event.type == pg.MOUSEBUTTONDOWN:
-                p = pg.mouse.get_pos()
-                #game.event_mouse_click(p)
-                s = controller.get_click_square(Pos(*p))
-                print(s)
+                mousePos = Pos(*pg.mouse.get_pos())
+                click = controller.get_click_square(mousePos)
+                if click is not None:
+                    game.mouseClicks.append(click)
+                    game.respond_to_player_action()
 
         for board in controller.boards:
             for square in board.get_edited_squares():

@@ -1,5 +1,4 @@
 from typing import List, Optional, Tuple
-
 import config
 from card import Card
 from util import Pos
@@ -25,6 +24,14 @@ class Board:
     def set_top_left(self, pos: Pos):
         self.topLeft = pos
         self.bottomRight = self.topLeft + (self.squareSize + 2*self.spacing) * self.size
+
+    def set_next_square(self, card: Card) -> None:
+        for idx, square in enumerate(self.squares):
+            if square is None or square.name == 'empty':
+                self.set_square(Pos(idx % self.size.x, idx // self.size.x), card)
+                return
+        raise ValueError('no empty square')
+
 
     def get_edited_squares(self):
         while self.editedSquares:

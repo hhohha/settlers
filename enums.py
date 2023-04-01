@@ -1,9 +1,12 @@
 from enum import Enum
 
+class Button(Enum):
+    OK = 0
+
 class GameStage(Enum):
     NONE = 0
     LANDSCAPE_SETUP = 1
-    CHOOSE_CARDS = 2      # TODO - rename
+    CHOOSE_STARING_CARDS = 2
 
 class BuildingType(Enum):
     WAREHOUSE = 0
