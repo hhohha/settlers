@@ -24,11 +24,32 @@ class Pos:
         else:
             return Pos(self.x + other, self.y + other)
 
+    def __sub__(self, other: Union['Pos', int]) -> 'Pos':
+        if isinstance(other, Pos):
+            return Pos(self.x - other.x, self.y - other.y)
+        else:
+            return Pos(self.x - other, self.y - other)
+
     def __mul__(self, other: Union['Pos', int]) -> 'Pos':
         if isinstance(other, Pos):
             return Pos(self.x * other.x, self.y * other.y)
         else:
             return Pos(self.x * other, self.y * other)
+
+    def __floordiv__(self, other: Union['Pos', int]) -> 'Pos':
+        if isinstance(other, Pos):
+            return Pos(self.x // other.x, self.y // other.y)
+        else:
+            return Pos(self.x // other, self.y // other)
+
+    def __lt__(self, other):
+        return self.x < other.x and self.y < other.y
+
+    def __gt__(self, other):
+        return self.x > other.x and self.y > other.y
+
+    def __le__(self, other):
+        return self.x <= other.x and self.y <= other.y
 
     def up(self, n: int) -> 'Pos':
         return Pos(self.x, self.y - n)

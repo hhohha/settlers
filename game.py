@@ -16,11 +16,11 @@ class Game:
         self.activePlayer = Player(1)
         self.nonactivePlayer = Player(2)
 
-        self.board: Board = Board(Pos(*config.MAIN_BOARD_SQUARES))
-        self.handBoard = Board(Pos(*config.HAND_BOARD_SQUARES))
-        self.choiceBoard = Board(Pos(*config.CHOICE_BOARD_SQUARES))
-        self.bigCard = Board(Pos(1, 1))
-        self.buttons = Board(Pos(2, 3))
+        self.board: Board = Board(Pos(*config.MAIN_BOARD_SQUARES), Pos(*config.CARD_IMG_SIZE_SMALL))
+        self.handBoard = Board(Pos(*config.HAND_BOARD_SQUARES), Pos(*config.CARD_IMG_SIZE_SMALL))
+        self.choiceBoard = Board(Pos(*config.CHOICE_BOARD_SQUARES), Pos(*config.CARD_IMG_SIZE_SMALL))
+        self.bigCard = Board(Pos(1, 1), Pos(*config.CARD_IMG_SIZE_BIG))
+        self.buttons = Board(Pos(*config.BUTTON_BOARD_SQUARES), Pos(*config.BUTTON_SIZE))
 
         self.cardPiles: List[List[Card]] = [[] for _ in range(config.PILE_COUNT)]
         self.eventCards: List[Event] = CardData.create_event_cards()
