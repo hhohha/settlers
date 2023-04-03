@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional
 import config
 from card import Card
 from util import Pos
@@ -23,7 +23,7 @@ class Board:
 
     def set_top_left(self, pos: Pos):
         self.topLeft = pos
-        self.bottomRight = self.topLeft + (self.squareSize + 2*self.spacing) * self.size
+        self.bottomRight = self.topLeft + (self.squareSize + 2 * self.spacing) * self.size
 
     def set_next_square(self, card: Card) -> None:
         for idx, square in enumerate(self.squares):
@@ -32,25 +32,6 @@ class Board:
                 return
         raise ValueError('no empty square')
 
-
     def get_edited_squares(self):
         while self.editedSquares:
             yield self.editedSquares.pop()
-
-
-class BoardsController:
-    def __init__(self):
-        self.boards: List[Board] = []
-
-    def add(self, board: Board) -> None:
-        self.boards.append(board)
-
-    def get_click_square(self, pos: Pos) -> Optional[Tuple[Board, Pos]]:
-        for board in self.boards:
-            if board.topLeft is None or board.bottomRight is None:
-                continue
-            if board.bottomRight > pos > board.topLeft:
-                retPos = (pos - board.topLeft) // (board.squareSize + Pos(board.spacing, board.spacing))
-                return board, retPos
-        return None
-

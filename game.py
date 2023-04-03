@@ -1,18 +1,21 @@
 import random
 from typing import List, Optional, Type, Tuple, TYPE_CHECKING
 from board import Board
+from display_handler import DisplayHandler
 from enums import ActionType, DiceEvent, EventCardType, GameStage, Button
 from card_data import CardData
 from player import Player
 import config
-from util import DiceEvents, Pos
-from card import Card, Event, Landscape, Village, Town, Path, MetaCard
+from util import DiceEvents, Pos, MouseClick
+from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable
+
+Pile = List[Playable]
 
 class Game:
     def __init__(self):
         self.eventCards = []
-        self.activePlayer = Player(self, 1)
-        self.nonactivePlayer = Player(self, 2)
+        self.humanPlayer = Player(self, 1)
+        self.computerPlayer = Player(self, 2)
 
         self.board: Board = Board(Pos(*config.MAIN_BOARD_SQUARES), Pos(*config.CARD_IMG_SIZE_SMALL))
         self.handBoard = Board(Pos(*config.HAND_BOARD_SQUARES), Pos(*config.CARD_IMG_SIZE_SMALL))
@@ -20,7 +23,14 @@ class Game:
         self.bigCard = Board(Pos(1, 1), Pos(*config.CARD_IMG_SIZE_BIG))
         self.buttons = Board(Pos(*config.BUTTON_BOARD_SQUARES), Pos(*config.BUTTON_SIZE))
 
-        self.cardPiles: List[List[Card]] = [[] for _ in range(config.PILE_COUNT)]
+        self.display = DisplayHandler()
+        self.display.add_board(self.board)
+        self.display.add_board(self.handBoard)
+        self.display.add_board(self.choiceBoard)
+        self.display.add_board(self.bigCard)
+        self.display.add_board(self.buttons)
+
+        self.cardPiles: List[Pile] = [[] for _ in range(config.PILE_COUNT)]
         self.pileSelected: Optional[List[Card]] = None
         self.cardSelected: Optional[Card] = None
 
@@ -31,7 +41,7 @@ class Game:
             Path: config.PATHS_COUNT,
             Town: config.TOWNS_COUNT
         }
-        self.mouseClicks: List[Tuple[Board, Pos]] = []
+        self.mouseClicks: List[MouseClick] = []
         self.stage: GameStage = GameStage.NONE
 
         self.paths: int = config.PATHS_COUNT
@@ -45,85 +55,13 @@ class Game:
         self.init_choice_board()
         self.init_big_card()
         self.init_buttons()
-        self.stage = GameStage.LANDSCAPE_SETUP   # the first action of the game
 
-    def respond_to_player_action(self):
-        if self.stage == GameStage.LANDSCAPE_SETUP:
-            print(f'game stage: landscape setup')
-            self.player_action_land_setup()
-        elif self.stage == GameStage.CHOOSE_STARING_CARDS:
-            print(f'game stage: choosing starting cards')
-            self.player_action_choose_starting_cards()
-
-    def button_clicked(self) -> Optional[int]:
-        if not self.mouseClicks:
-            return None
-
-        board, square = self.mouseClicks[-1]
+    def button_clicked(self, click: MouseClick) -> int:
+        board, square = click.tuple()
         if board is not self.buttons:
-            return None
+            return Button.NO_BUTTON.value
 
         return square.x + square.y * self.buttons.size.x
-
-    def player_action_land_setup(self) -> None:
-        # has player finished landscape? If so, moving to choosing cards
-        if self.button_clicked() == Button.OK.value:
-            self.stage = GameStage.CHOOSE_STARING_CARDS
-            self.mouseClicks.clear()
-
-        if len(self.mouseClicks) < 2:
-            return
-
-        board1, pos1 = self.mouseClicks[-1]
-        board2, pos2 = self.mouseClicks[-2]
-
-        if board1 is not self.board or board2 is not self.board:
-            return
-
-        card1, card2 = self.board.get_square(pos1), self.board.get_square(pos2)
-        if isinstance(card1, Landscape) and isinstance(card2, Landscape) and card1.player is self.activePlayer and card2.player is self.activePlayer:
-            self.board.set_square(pos1, card2)
-            self.board.set_square(pos2, card1)
-            self.mouseClicks.clear()
-
-    def select_pile(self) -> None:
-        print('selecting pile')
-        if not self.mouseClicks:
-            return
-
-        board, pos = self.mouseClicks[-1]
-        if board is not self.board or self.board.get_square(pos).name != 'back':
-            return
-
-        selectedPileIdx = pos.x - board.size.x + len(self.cardPiles)
-        self.pileSelected = self.cardPiles[selectedPileIdx]
-        self.mouseClicks.clear()
-
-        self.init_choice_board()
-        pos = Pos(0, 0)
-        for card in self.pileSelected:
-            self.choiceBoard.set_next_square(card)
-
-    def player_action_choose_starting_cards(self):
-        if self.pileSelected is None:
-            self.select_pile()
-            return
-
-        if not self.mouseClicks:
-            return
-
-        if self.cardSelected is not None and self.button_clicked() == Button.OK.value:
-            self.activePlayer.take_card(self.cardSelected)
-            self.pileSelected.pop()
-
-
-        board, pos = self.mouseClicks[-1]
-        if board is not self.choiceBoard or board.get_square(pos).name == 'empty':
-            return
-
-        self.cardSelected = board.get_square(pos)
-        self.bigCard.set_square(Pos(0, 0), self.cardSelected)
-
 
     def create_infra_card(self, cardType: Type[Village | Path | Town]):
         if self.infraCardsLeft[cardType] > 0:
@@ -154,7 +92,7 @@ class Game:
         self.board.set_square(Pos(6, 8), self.create_infra_card(Path))
         self.board.set_square(Pos(7, 8), self.create_infra_card(Village))
         self.board.set_square(Pos(5, 8), self.create_infra_card(Village))
-        for lCard, pos in zip(self.activePlayer.landscapeCards, [Pos(4, 9), Pos(6, 9), Pos(8, 9), Pos(4, 7), Pos(6, 7), Pos(8, 7)]):
+        for lCard, pos in zip(self.humanPlayer.landscapeCards, [Pos(4, 9), Pos(6, 9), Pos(8, 9), Pos(4, 7), Pos(6, 7), Pos(8, 7)]):
             self.board.set_square(pos, lCard)
 
         self.board.set_square(Pos(0, 5), MetaCard('back_event'))
@@ -167,7 +105,7 @@ class Game:
             self.board.set_square(Pos(x, 5), MetaCard('back')) # TODO - set this up relative to right side
 
     def setup_landscape_cards(self):
-        for card in CardData.create_landscape_cards(self.activePlayer, self.nonactivePlayer):
+        for card in CardData.create_landscape_cards(self.humanPlayer, self.computerPlayer):
             if card.player is None:
                 self.landscapeCards.append(card)
             else:
@@ -189,7 +127,7 @@ class Game:
 
 
     def is_victory(self) -> bool:
-        return self.activePlayer.victoryPoints >= config.VICTORY_POINTS or self.nonactivePlayer.victoryPoints >= config.VICTORY_POINTS
+        return self.humanPlayer.victoryPoints >= config.VICTORY_POINTS or self.computerPlayer.victoryPoints >= config.VICTORY_POINTS
 
     def handle_dice_events(self, event: DiceEvents):
         if event == DiceEvent.TOURNAMENT:
@@ -231,18 +169,98 @@ class Game:
         self.add_resources(diceNumber)
 
         while True:
-            action = self.activePlayer.get_action()
+            action = self.humanPlayer.get_action()
             if action.actionType == ActionType.END_TURN:
                 break
 
-        self.settle_card_counts(self.activePlayer)
-        self.settle_card_counts(self.nonactivePlayer)
+        self.settle_card_counts(self.humanPlayer)
+        self.settle_card_counts(self.computerPlayer)
+
+    def initial_land_setup_computer(self):
+        pass
+
+    def initial_land_setup_player(self) -> None:
+        while True:
+            self.mouseClicks.append(self.display.get_mouse_click())
+
+            if self.button_clicked(self.mouseClicks[-1]) == Button.OK.value:
+                self.mouseClicks.clear()
+                return
+
+            if len(self.mouseClicks) < 2:
+                continue
+
+            board1, pos1 = self.mouseClicks[-1].tuple()
+            board2, pos2 = self.mouseClicks[-2].tuple()
+
+            if board1 is not self.board or board2 is not self.board:
+                continue
+
+            card1, card2 = self.board.get_square(pos1), self.board.get_square(pos2)
+            if isinstance(card1, Landscape) and isinstance(card2, Landscape) and card1.player is self.humanPlayer and card2.player is self.humanPlayer:
+                self.board.set_square(pos1, card2)
+                self.board.set_square(pos2, card1)
+                self.mouseClicks.clear()
+
+    def select_card(self, card: Card):
+        self.bigCard.set_square(Pos(0, 0), card)
 
 
+    def display_cards_for_choice(self, pile: Pile) -> None:
+        self.init_choice_board()
+        for card in pile:
+           self.choiceBoard.set_next_square(card)
 
+    def display_hand_cards(self):
+        self.init_hand_board()
+        for card in self.humanPlayer.cardsInHand:
+            self.handBoard.set_next_square(card)
+
+    def get_card_from_choice(self, pile: Pile) -> None:
+        self.display_cards_for_choice(pile)
+        while True:
+            board, pos = self.display.get_mouse_click().tuple()
+            if board is self.choiceBoard and self.choiceBoard.get_square(pos).name != 'empty':
+                self.mouseClicks.clear()
+                break
+
+        cardIdx = pos.x + self.choiceBoard.size.x * pos.y
+        card = pile[cardIdx]
+        self.select_card(card)
+
+        click = self.display.get_mouse_click()
+        if self.button_clicked(click) == Button.OK:
+            self.humanPlayer.add_card(card)
+            self.handBoard.set_next_square(card)
+            pile.pop(cardIdx)
+
+    def pick_starting_cards_player(self) -> None:
+        pile = self.select_pile()
+        for _ in range(self.humanPlayer.cardsInHandCnt):
+            self.get_card_from_choice(pile)
+
+    def pick_starting_cards_computer(self) -> None:
+        pass
+
+    def select_pile(self) -> Pile:
+        while True:
+            self.mouseClicks.append(self.display.get_mouse_click())
+
+            if not self.mouseClicks:
+                continue
+
+            board, pos = self.mouseClicks[-1].tuple()
+            if board is not self.board or self.board.get_square(pos).name != 'back':
+                continue
+
+            pileIdx = pos.x - board.size.x + len(self.cardPiles)
+            return self.cardPiles[pileIdx]
 
     def play(self):
-        while not self.is_victory():
-            self.activePlayer, self.nonactivePlayer = self.nonactivePlayer, self.activePlayer
-            self.turn()
+        self.initial_land_setup_player()
+        self.initial_land_setup_computer()
 
+        self.pick_starting_cards_player()
+        self.pick_starting_cards_computer()
+
+        print('game ended successfully')

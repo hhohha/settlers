@@ -1,6 +1,7 @@
 from enum import Enum
 
 class Button(Enum):
+    NO_BUTTON = -1
     OK = 0
 
 class GameStage(Enum):

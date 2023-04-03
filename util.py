@@ -1,8 +1,8 @@
-from typing import Union, Tuple
-
+from typing import Union, Tuple, TYPE_CHECKING
 from dataclasses import dataclass
 from enums import DiceEvent
-
+if TYPE_CHECKING:
+    from board import Board
 
 @dataclass(frozen=True)
 class Cost:
@@ -65,6 +65,14 @@ class Pos:
 
     def tuple(self) -> Tuple[int, int]:
         return self.x, self.y
+
+@dataclass(frozen=True)
+class MouseClick:
+    board: 'Board'
+    pos: Pos
+    def tuple(self) -> Tuple['Board', Pos]:
+        return self.board, self.pos
+
 
 DiceEvents = {
     1: DiceEvent.TOURNAMENT,
