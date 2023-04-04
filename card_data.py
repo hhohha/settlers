@@ -1,9 +1,51 @@
 import random
-from typing import List
-from card import Landscape, Event, Playable, Fleet, Knight, Building, Action
+from typing import List, TypedDict, Optional, Set, Any
+from card import Landscape, Event, Playable, Fleet, Knight, Building, Action, Card
 from enums import BuildingType, Resource, ActionCardType, EventCardType
 from player import Player
 from util import Cost
+
+class KnightData(TypedDict):
+    name: str
+    cost: Cost
+    battle_strength: int
+    tournament_strength: int
+
+class FleetData(TypedDict):
+    name: str
+    resource: Resource
+    cost: Cost
+    trade_points: int
+
+class BuildingData(TypedDict):
+    name: str
+    type: BuildingType
+    count: int
+    cost: Cost
+    victory_points: int
+    trade_points: int
+    town_only: bool
+
+class ActionCardData(TypedDict):
+    name: str
+    type: ActionCardType
+    count: int
+
+
+class EventCardData(TypedDict):
+    name: str
+    type: EventCardType
+    count: int
+
+class LandscapeData(TypedDict):
+    name: str
+    resource: Resource
+    dice: int
+    count: int
+    player: Optional[int]
+
+class NamedData(TypedDict):
+    name: str
 
 class CardData:
     @staticmethod
@@ -77,7 +119,7 @@ class CardData:
         random.shuffle(cards)
         return cards
 
-    KNIGHT_LIST = [
+    KNIGHT_LIST: List[KnightData] = [
         {'name': 'konrad', 'cost': Cost(grain=1, rock=1), 'battle_strength': 2, 'tournament_strength': 1},
         {'name': 'gustav', 'cost': Cost(grain=2, sheep=2, rock=2), 'battle_strength': 5, 'tournament_strength': 2},
         {'name': 'otto', 'cost': Cost(rock=2, grain=1, sheep=1), 'battle_strength': 3, 'tournament_strength': 2},
@@ -89,7 +131,7 @@ class CardData:
         {'name': 'hubert', 'cost': Cost(grain=1, rock=1), 'battle_strength': 1, 'tournament_strength': 2},
     ]
 
-    FLEET_LIST = [
+    FLEET_LIST: List[FleetData] = [
         {'name': 'fleet_gold', 'resource': Resource.GOLD, 'cost': Cost(wood=1, sheep=1), 'trade_points': 1},
         {'name': 'fleet_sheep', 'resource': Resource.SHEEP, 'cost': Cost(wood=1, sheep=1), 'trade_points': 1},
         {'name': 'fleet_wood', 'resource': Resource.WOOD, 'cost': Cost(wood=1, sheep=1), 'trade_points': 1},
@@ -98,7 +140,7 @@ class CardData:
         {'name': 'fleet_grain', 'resource': Resource.GRAIN, 'cost': Cost(wood=1, sheep=1), 'trade_points': 1}
     ]
 
-    BUILDING_LIST = [
+    BUILDING_LIST: List[BuildingData] = [
         {'name': 'warehouse', 'type': BuildingType.WAREHOUSE, 'count': 3, 'cost': Cost(brick=1, wood=1), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
         {'name': 'mill', 'type': BuildingType.MILL, 'count': 1, 'cost': Cost(brick=1, grain=1), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
         {'name': 'sawmill', 'type': BuildingType.SAWMILL, 'count': 1, 'cost': Cost(wood=2), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
@@ -119,7 +161,7 @@ class CardData:
         {'name': 'aquaduct', 'type': BuildingType.AQUADUCT, 'count': 2, 'cost': Cost(rock=2, brick=2, wood=2), 'victory_points': 1, 'trade_points': 0, 'town_only': True}
     ]
 
-    ACTION_CARD_LIST = [
+    ACTION_CARD_LIST: List[ActionCardData] = [
         {'name': 'alchemist', 'type': ActionCardType.ALCHEMIST, 'count': 2},
         {'name': 'bishop', 'type': ActionCardType.BISHOP, 'count': 2},
         {'name': 'arson', 'type': ActionCardType.ARSON, 'count': 2},
@@ -132,7 +174,7 @@ class CardData:
         {'name': 'spy', 'type': ActionCardType.SPY, 'count': 3}
     ]
 
-    EVENT_CARD_LIST = [
+    EVENT_CARD_LIST: List[EventCardData] = [
         {'name': 'builder', 'type': EventCardType.BUILDER, 'count': 1},
         {'name': 'civil_war', 'type': EventCardType.CIVIL_WAR, 'count': 1},
         {'name': 'rich_year', 'type': EventCardType.RICH_YEAR, 'count': 2},
@@ -142,7 +184,7 @@ class CardData:
         {'name': 'plaque', 'type': EventCardType.PLAQUE, 'count': 2}
     ]
 
-    LANDSCAPE_CARD_LIST = [
+    LANDSCAPE_CARD_LIST: List[LandscapeData] = [
         {'name': 'gold', 'resource': Resource.GOLD, 'dice': 1, 'count': 1, 'player': 2},
         {'name': 'gold', 'resource': Resource.GOLD, 'dice': 3, 'count': 1, 'player': None},
         {'name': 'gold', 'resource': Resource.GOLD, 'dice': 6, 'count': 1, 'player': 1},
@@ -168,13 +210,13 @@ class CardData:
         {'name': 'grain', 'resource': Resource.GRAIN, 'dice': 4, 'count': 1, 'player': None}
     ]
 
-    INFRA_CARD_LIST = [
+    INFRA_CARD_LIST: List[NamedData] = [
         {'name': 'path'},
         {'name': 'village'},
         {'name': 'town'},
     ]
 
-    META_CARD_LIST = [
+    META_CARD_LIST: List[NamedData] = [
         {'name': 'back_land'},
         {'name': 'back_event'},
         {'name': 'back_town'},
@@ -184,5 +226,10 @@ class CardData:
         {'name': 'empty'}
     ]
 
-    CARD_NAMES = {card['name'] for card in KNIGHT_LIST + FLEET_LIST + BUILDING_LIST + ACTION_CARD_LIST + EVENT_CARD_LIST +
-                  LANDSCAPE_CARD_LIST + INFRA_CARD_LIST + META_CARD_LIST}
+    CARD_NAMES: Set[str] = {card['name'] for card in KNIGHT_LIST}
+    CARD_NAMES.update({card['name'] for card in FLEET_LIST})
+    CARD_NAMES.update({card['name'] for card in BUILDING_LIST})
+    CARD_NAMES.update({card['name'] for card in ACTION_CARD_LIST})
+    CARD_NAMES.update({card['name'] for card in EVENT_CARD_LIST})
+    CARD_NAMES.update({card['name'] for card in LANDSCAPE_CARD_LIST})
+    CARD_NAMES.update({card['name'] for card in INFRA_CARD_LIST + META_CARD_LIST})

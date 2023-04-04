@@ -70,5 +70,5 @@ class Fleet(Playable):
     def __init__(self, name: str, cost: Cost, affectedResource: Resource, tradePoints, player: Optional[Player] = None):
         super().__init__(name, player)
         self.cost = cost
-        self.affectedResource: affectedResource
+        self.affectedResource: Resource
         self.tradePoints = tradePoints

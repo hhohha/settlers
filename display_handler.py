@@ -6,8 +6,7 @@ from board import Board
 from util import Pos, MouseClick
 from config import *
 from card_data import CardData
-from typing import Dict, List, Optional, Tuple
-
+from typing import Dict, List, Optional
 
 class DisplayHandler:
     def __init__(self):
@@ -33,9 +32,15 @@ class DisplayHandler:
     def refresh_screen(self):
         space = CARD_IMG_SPACING
         for board in self.boards:
-            for square in board.get_edited_squares():
-                img = pg.transform.scale(self.images[board.get_square(square).name], board.squareSize.tuple())
-                self.screen.blit(img, (square * (board.squareSize + 2 * space) + space + board.topLeft).tuple())
+            for pos in board.get_edited_squares():
+                square = board.get_square(pos)
+                if square is None:
+                    x1, y1, = (pos * (board.squareSize + 2 * space) + space + board.topLeft).tuple()
+                    x2, y2 = x1 + CARD_IMG_SIZE_SMALL[0], y1 + CARD_IMG_SIZE_SMALL[1]
+                    self.screen.fill(BACKGROUND_IMAGE, (x1, y1, x2, y2))
+                else:
+                    img = pg.transform.scale(self.images[board.get_square(pos).name], board.squareSize.tuple())
+                    self.screen.blit(img, (pos * (board.squareSize + 2 * space) + space + board.topLeft).tuple())
         pg.display.flip()
 
     def add_board(self, board: Board) -> None:
@@ -50,7 +55,7 @@ class DisplayHandler:
                 return MouseClick(board, retPos)
         return None
 
-    def get_mouse_click(self) -> MouseClick:
+    def get_mouse_click(self, board: Optional[Board]=None, squareTypes: Optional[List[str]]=None) -> MouseClick:
         while True:
             for event in pg.event.get():
                 if event.type is pg.QUIT:
@@ -58,7 +63,25 @@ class DisplayHandler:
                 if event.type == pg.MOUSEBUTTONDOWN:
                     mousePos = Pos(*pg.mouse.get_pos())
                     click = self.get_click_square(mousePos)
-                    if click is not None:
+                    if click is None:
+                        continue
+
+                    clickedBoard, clickedPos = click.tuple()
+                    if board is None:
                         return click
+
+                    if board is not clickedBoard:
+                        continue
+
+                    if squareTypes is None:
+                        return click
+
+                    square = clickedBoard.get_square(clickedPos)
+                    if square is None:
+                        continue
+
+                    if square.name in squareTypes:
+                        return click
+
             self.refresh_screen()
             self.clock.tick(20)
