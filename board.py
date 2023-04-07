@@ -27,6 +27,9 @@ class Board:
         self.squares[self.to_int(pos)] = card
         self.editedSquares.append(pos)
 
+    def refresh_square(self, pos: Pos) -> None:
+        self.editedSquares.append(pos)
+
     def clear_square(self, pos: Pos) -> None:
         self.squares[self.to_int(pos)] = None
         self.editedSquares.append(pos)
@@ -49,3 +52,7 @@ class Board:
     def clear(self):
         for idx, _ in enumerate(self.squares):
             self.clear_square(self.to_pos(idx))
+
+    def fill_board(self, card: Card):
+        for idx, _ in enumerate(self.squares):
+            self.set_square(self.to_pos(idx), card)

@@ -10,6 +10,9 @@ class Card(ABC):
         self.name = name
         self.player = player
 
+    def __str__(self):
+        return self.name
+
 class MetaCard(Card):
     def __init__(self, name: str):
         super().__init__(name, None)
@@ -19,6 +22,8 @@ class Landscape(Card):
         super().__init__(name, player)
         self.resource: Resource = resource
         self.diceNumber = diceNumber
+        self.resourcesHeld = 0
+        self.isProtectedByWarehouse = False
 
 class Path(Card):
     def __init__(self, player: Optional[Player] = None):

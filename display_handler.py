@@ -3,6 +3,7 @@ import sys
 import pygame as pg
 
 from board import Board
+from card import Landscape
 from util import Pos, MouseClick
 from config import *
 from card_data import CardData
@@ -18,16 +19,22 @@ class DisplayHandler:
         space = CARD_IMG_SPACING
         boardSize: Pos = Pos(*MAIN_BOARD_SQUARES)
         screenSize: Pos = Pos((cardSize.x + space * 2) * (
-                    boardSize.x + max(HAND_BOARD_SQUARES[0], CHOICE_BOARD_SQUARES[0])) + RIGHT_BOARDS_SPACE + space,
+                    boardSize.x + max(PLAYER_BOARD_SQUARES[0], CHOICE_BOARD_SQUARES[0])) + BIG_SPACE + space,
                               (cardSize.y + space * 2) * boardSize.y)
 
         self.screen = pg.display.set_mode(screenSize.tuple())
         self.screen.fill(BACKGROUND_IMAGE)
         pg.display.set_caption('Settlers')
         self.clock = pg.time.Clock()
+        self.font = pg.font.Font('freesansbold.ttf', 32)
+        self.textTopLeft: Pos = Pos(0, 0)
 
         for name in CardData.CARD_NAMES:
             self.images[name] = pg.image.load('imgs/' + name + '.png').convert_alpha()
+
+    def print_msg(self, msg: str) -> None:
+        text = self.font.render(msg + ' '*50, True, (40, 40, 40), BACKGROUND_IMAGE)
+        self.screen.blit(text, self.textTopLeft.tuple())
 
     def refresh_screen(self):
         space = CARD_IMG_SPACING
@@ -36,11 +43,18 @@ class DisplayHandler:
                 square = board.get_square(pos)
                 if square is None:
                     x1, y1, = (pos * (board.squareSize + 2 * space) + space + board.topLeft).tuple()
-                    x2, y2 = x1 + CARD_IMG_SIZE_SMALL[0], y1 + CARD_IMG_SIZE_SMALL[1]
-                    self.screen.fill(BACKGROUND_IMAGE, (x1, y1, x2, y2))
+                    self.screen.fill(BACKGROUND_IMAGE, (x1, y1, *CARD_IMG_SIZE_SMALL))
                 else:
                     img = pg.transform.scale(self.images[board.get_square(pos).name], board.squareSize.tuple())
                     self.screen.blit(img, (pos * (board.squareSize + 2 * space) + space + board.topLeft).tuple())
+                    if isinstance(square, Landscape):
+                        text = self.font.render(str(square.resourcesHeld), True, (40, 40, 40), BACKGROUND_IMAGE)
+                        p = pos * (board.squareSize + 2 * space) + space + board.topLeft
+                        self.screen.blit(text, p.tuple())
+
+                        text = self.font.render(str(square.diceNumber), True, (40, 40, 40), BACKGROUND_IMAGE)
+                        p = (pos * (board.squareSize + 2 * space) + space + board.topLeft) + Pos(*CARD_IMG_SIZE_SMALL) // 2
+                        self.screen.blit(text, p.tuple())
         pg.display.flip()
 
     def add_board(self, board: Board) -> None:
