@@ -22,8 +22,8 @@ class Game:
         self.bigCard = Board(Pos(1, 1), Pos(*config.CARD_IMG_SIZE_BIG))
         self.buttons = Board(Pos(*config.BUTTON_BOARD_SQUARES), Pos(*config.BUTTON_SIZE))
 
-        self.player1: Player = HumanPlayer(self, self.player1Board, 1)
-        self.player2: Player = ComputerPlayer(self, self.player2Board, 2)
+        self.player1: Player = HumanPlayer(self, self.player1Board, 1, Pos(6, 8))
+        self.player2: Player = ComputerPlayer(self, self.player2Board, 2, Pos(6, 2))
         self.player1.opponent = self.player2
         self.player2.opponent = self.player1
 
@@ -53,9 +53,10 @@ class Game:
         self.villages: int = config.VILLAGES_COUNT
         self.towns: int = config.TOWNS_COUNT
 
-        self.setup_landscape_cards()
+
         self.setup_playable_cards()
         self.init_main_board()
+        self.setup_landscape_cards()
 
         self.player1Board.fill_board(MetaCard('empty'))
         self.player2Board.fill_board(MetaCard('empty'))
@@ -66,6 +67,8 @@ class Game:
     def get_filtered_click(self, clickFilters: List[ClickFilter]=[]) -> MouseClick:
         while True:
             click = self.display.get_mouse_click()
+            if not clickFilters:
+                return click
             for clickFilter in clickFilters:
                 if clickFilter.accepts(click):
                     return click
@@ -82,13 +85,10 @@ class Game:
         for pos in (Pos(x, y) for x in range(self.mainBoard.size.x) for y in range(self.mainBoard.size.y)):
             self.mainBoard.set_square(pos, MetaCard('empty'))
 
-        self.mainBoard.set_square(Pos(6, 8), self.create_infra_card(Path))
-        self.mainBoard.set_square(Pos(7, 8), self.create_infra_card(Village))
-        self.mainBoard.set_square(Pos(5, 8), self.create_infra_card(Village))
-
-        for lCard, pos in zip(self.player1.landscapeCards,
-                              [Pos(4, 9), Pos(6, 9), Pos(8, 9), Pos(4, 7), Pos(6, 7), Pos(8, 7)]):
-            self.mainBoard.set_square(pos, lCard)
+        for player in [self.player1, self.player2]:
+            self.mainBoard.set_square(player.midPos, self.create_infra_card(Path))
+            self.mainBoard.set_square(player.midPos.right(1), self.create_infra_card(Village))
+            self.mainBoard.set_square(player.midPos.left(1), self.create_infra_card(Village))
 
         self.mainBoard.set_square(Pos(0, 5), MetaCard('back_event'))
         self.mainBoard.set_square(Pos(1, 5), MetaCard('back_land'))
@@ -96,16 +96,15 @@ class Game:
         self.mainBoard.set_square(Pos(3, 5), MetaCard('back_village'))
         self.mainBoard.set_square(Pos(4, 5), MetaCard('back_town'))
 
-        for x in range(8, 13):
-            self.mainBoard.set_square(Pos(x, 5), MetaCard('back'))  # TODO - set this up relative to right side
+        for x in range(self.mainBoard.size.x - len(self.cardPiles), self.mainBoard.size.x):
+            self.mainBoard.set_square(Pos(x, 5), MetaCard('back'))
 
     def setup_landscape_cards(self):
         for card in CardData.create_landscape_cards(self.player1, self.player2):
-            if card.player is None:
-                self.landscapeCards.append(card)
+            if card.player is not None:
+                card.player.setup_land_card(card)
             else:
-                #card.player.landscapeCards.append(card)
-                card.player.landscapeCards[card] = None
+                self.landscapeCards.append(card)
 
     def setup_playable_cards(self) -> None:
         cards: List[Playable] = CardData.create_playable_cards()

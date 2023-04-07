@@ -6,12 +6,12 @@ from player import Player
 
 if TYPE_CHECKING:
     from game import Game
-    from util import Pile
+    from util import Pile, Pos
     from board import Board
 
 class ComputerPlayer(Player):
-    def __init__(self, game: Game, handBoard: Board, number: int):
-        super().__init__(game, handBoard, number, False)
+    def __init__(self, game: Game, handBoard: Board, number: int, midPos: Pos):
+        super().__init__(game, handBoard, number, False, midPos)
 
     def initial_land_setup(self) -> None:
         # TODO - move gold to the middle

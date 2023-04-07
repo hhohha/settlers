@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Optional, TYPE_CHECKING
-from enums import Button
+from enums import Button, DiceEvent
 from player import Player
 from util import Pos, MouseClick, Pile, ClickFilter, ResourceList
 from card import Landscape
@@ -10,8 +10,8 @@ if TYPE_CHECKING:
 
 
 class HumanPlayer(Player):
-    def __init__(self, game: Game, handBoard: Board, number: int):
-        super().__init__(game, handBoard, number, True)
+    def __init__(self, game: Game, handBoard: Board, number: int, midPos: Pos):
+        super().__init__(game, handBoard, number, True, midPos)
 
     def button_clicked(self, click: MouseClick) -> int:
         board, square = click.tuple()
@@ -21,8 +21,8 @@ class HumanPlayer(Player):
         return square.x + square.y * self.game.buttons.size.x
 
     def initial_land_setup(self) -> None:
-        self.game.display.print_msg('setup landscape')
         landSelected: Optional[Pos] = None
+        self.game.display.print_msg('setup land cards')
 
         while True:
             click = self.game.display.get_mouse_click()
@@ -51,7 +51,6 @@ class HumanPlayer(Player):
         selectedCardIdx: Optional[int] = None
         self.game.choiceBoard.clear()
         for idx, card in enumerate(pile):
-            print(f'card {idx}: {card}')
             self.game.choiceBoard.set_next_square(card)
 
         while True:
@@ -109,10 +108,11 @@ class HumanPlayer(Player):
 
 
     def pick_any_resource(self) -> None:
+        self.game.display.print_msg('pick a resource')
         while True:
-            click = self.game.display.get_mouse_click(
-                ClickFilter(board=self.game.mainBoard, cardTypes=ResourceList, player=self),
-                ClickFilter(board=self.game.buttons)
+            click = self.game.get_filtered_click(
+                [ClickFilter(board=self.game.mainBoard, cardTypes=ResourceList, player=self),
+                ClickFilter(board=self.game.buttons)]
             )
 
             if self.button_clicked(click) == Button.CANCEL.value:
@@ -132,10 +132,20 @@ class HumanPlayer(Player):
             click.board.refresh_square(click.pos)
             return
 
+    def wait_for_ok(self):
+        while True:
+            click = self.game.get_filtered_click()
+            if self.button_clicked(click) == Button.OK.value:
+                return
+
+
     def refill_hand(self) -> None:
         pass
 
     def throw_dice(self) -> None:
-        # click on button
-        event = self.game.throw_event_dice()
+        self.game.display.print_msg('click to toss event dice')
+        self.wait_for_ok()
+
+        event: DiceEvent = self.game.throw_event_dice()
+        print(f'event: {event}')
         self.game.handle_dice_events(event)

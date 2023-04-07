@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from board import Board
 
 class Player(ABC):
-    def __init__(self, game: Game, handBoard: Board, number: int, handBoardVisible: bool):
+    def __init__(self, game: Game, handBoard: Board, number: int, handBoardVisible: bool, midPos: Pos):
         self.game: Game = game
         self.opponent: Optional[Player] = None
         self.handBoard = handBoard
@@ -26,6 +26,15 @@ class Player(ABC):
         self.fleetPlayed:  Dict[Fleet, Pos] = {}
         self.buildingsPlayed: Dict[Building, Pos] = {}
         self.handBoardVisible: bool = handBoardVisible
+        self.midPos: Pos = midPos
+        self.initialLandPos: List[Pos] = [midPos.up(1), midPos.down(1), midPos + Pos(2, 1), midPos + Pos(2, -1),
+                                          midPos + Pos(-2, 1), midPos + Pos(-2, -1)]
+
+    def setup_land_card(self, card: Landscape):
+        pos = self.initialLandPos.pop()
+        print(pos, card)
+        self.landscapeCards[card] = pos
+        self.game.mainBoard.set_square(pos, card)
 
     def get_tournament_strength(self) -> int:
         return sum(map(lambda k: k.tournamentStrength, self.knightsPlayed))

@@ -35,6 +35,7 @@ class DisplayHandler:
     def print_msg(self, msg: str) -> None:
         text = self.font.render(msg + ' '*50, True, (40, 40, 40), BACKGROUND_IMAGE)
         self.screen.blit(text, self.textTopLeft.tuple())
+        pg.display.flip()
 
     def refresh_screen(self):
         space = CARD_IMG_SPACING
