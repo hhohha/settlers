@@ -1,11 +1,37 @@
-from typing import Union, Tuple, TYPE_CHECKING, List
+from __future__ import annotations
+from typing import Union, Tuple, TYPE_CHECKING, List, Optional
 from dataclasses import dataclass
 from enums import DiceEvent
+
 if TYPE_CHECKING:
-    from card import Playable
+    from player import Player
     from board import Board
 
 Pile = List['Playable']
+
+ResourceList = ['gold', 'rock', 'sheep', 'wood', 'brick', 'grain']
+
+@dataclass
+class ClickFilter:
+    board: Optional[Board] = None
+    cardTypes: Optional[List[str]] = None
+    player: Optional[Player] = None
+
+    def accepts(self, click: MouseClick) -> bool:
+        if self.board is not None and self.board is not click.board:
+            return False
+
+        square = click.board.get_square(click.pos)
+        if square is None:
+            return False
+
+        if self.cardTypes is not None and square.name not in self.cardTypes:
+            return False
+
+        if self.player is not None and self.player is not square.player:
+            return False
+
+        return True
 
 @dataclass(frozen=True)
 class Cost:
@@ -71,10 +97,10 @@ class Pos:
 
 @dataclass(frozen=True)
 class MouseClick:
-    board: 'Board'
+    board: Board
     pos: Pos
 
-    def tuple(self) -> Tuple['Board', Pos]:
+    def tuple(self) -> Tuple[Board, Pos]:
         return self.board, self.pos
 
 DiceEvents = {

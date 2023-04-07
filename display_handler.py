@@ -1,13 +1,13 @@
+from __future__ import annotations
 import sys
-
 import pygame as pg
-
-from board import Board
 from card import Landscape
 from util import Pos, MouseClick
 from config import *
 from card_data import CardData
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
+if TYPE_CHECKING:
+    from board import Board
 
 class DisplayHandler:
     def __init__(self):
@@ -69,7 +69,7 @@ class DisplayHandler:
                 return MouseClick(board, retPos)
         return None
 
-    def get_mouse_click(self, board: Optional[Board]=None, squareTypes: Optional[List[str]]=None) -> MouseClick:
+    def get_mouse_click(self) -> MouseClick:
         while True:
             for event in pg.event.get():
                 if event.type is pg.QUIT:
@@ -79,23 +79,7 @@ class DisplayHandler:
                     click = self.get_click_square(mousePos)
                     if click is None:
                         continue
-
-                    clickedBoard, clickedPos = click.tuple()
-                    if board is None:
-                        return click
-
-                    if board is not clickedBoard:
-                        continue
-
-                    if squareTypes is None:
-                        return click
-
-                    square = clickedBoard.get_square(clickedPos)
-                    if square is None:
-                        continue
-
-                    if square.name in squareTypes:
-                        return click
+                    return click
 
             self.refresh_screen()
             self.clock.tick(20)

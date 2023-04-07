@@ -7,12 +7,13 @@ from enums import ActionType, DiceEvent, EventCardType, GameStage, Button
 from card_data import CardData
 from human_player import HumanPlayer
 import config
-from util import DiceEvents, Pos, MouseClick, Pile
+from player import Player
+from util import DiceEvents, Pos, MouseClick, Pile, ClickFilter
 from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable
 
 class Game:
     def __init__(self):
-        self.eventCards = []
+        self.eventCards: List[EventCardType] = []
 
         self.mainBoard: Board = Board(Pos(*config.MAIN_BOARD_SQUARES), Pos(*config.CARD_IMG_SIZE_SMALL))
         self.player1Board = Board(Pos(*config.PLAYER_BOARD_SQUARES), Pos(*config.CARD_IMG_SIZE_SMALL))
@@ -21,8 +22,8 @@ class Game:
         self.bigCard = Board(Pos(1, 1), Pos(*config.CARD_IMG_SIZE_BIG))
         self.buttons = Board(Pos(*config.BUTTON_BOARD_SQUARES), Pos(*config.BUTTON_SIZE))
 
-        self.player1 = HumanPlayer(self, self.player1Board, 1)
-        self.player2 = ComputerPlayer(self, self.player2Board, 2)
+        self.player1: Player = HumanPlayer(self, self.player1Board, 1)
+        self.player2: Player = ComputerPlayer(self, self.player2Board, 2)
         self.player1.opponent = self.player2
         self.player2.opponent = self.player1
 
@@ -61,6 +62,14 @@ class Game:
         self.choiceBoard.fill_board(MetaCard('empty'))
         self.bigCard.fill_board(MetaCard('empty'))
         self.buttons.fill_board(MetaCard('empty'))
+
+    def get_filtered_click(self, clickFilters: List[ClickFilter]=[]) -> MouseClick:
+        while True:
+            click = self.display.get_mouse_click()
+            for clickFilter in clickFilters:
+                if clickFilter.accepts(click):
+                    return click
+
 
     def create_infra_card(self, cardType: Type[Village | Path | Town]):
         if self.infraCardsLeft[cardType] > 0:

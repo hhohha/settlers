@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Optional, TYPE_CHECKING
 from enums import Button
 from player import Player
-from util import Pos, MouseClick, Pile
+from util import Pos, MouseClick, Pile, ClickFilter, ResourceList
 from card import Landscape
 if TYPE_CHECKING:
     from game import Game
@@ -43,7 +43,7 @@ class HumanPlayer(Player):
                 landSelected = None
 
     def select_pile(self) -> Pile:
-        board, pos = self.game.display.get_mouse_click(self.game.mainBoard, ['back']).tuple()
+        board, pos = self.game.get_filtered_click([ClickFilter(board=self.game.mainBoard, cardTypes=['back'])]).tuple()
         pileIdx = pos.x - board.size.x + len(self.game.cardPiles)
         return self.game.cardPiles[pileIdx]
 
@@ -78,11 +78,44 @@ class HumanPlayer(Player):
             self.get_card_from_choice(pile)
         self.game.choiceBoard.clear()
 
-    def pick_any_resource(self) -> None:
+    def grab_any_resource(self) -> None:
+        opponentLandSelected: Optional[Landscape] = None
+        selectedPos: Optional[Pos] = None
+
         while True:
-            click = self.game.display.get_mouse_click()
+            click = self.game.display.get_mouse_click(
+                ClickFilter(board=self.game.mainBoard, cardTypes=ResourceList),
+                ClickFilter(board=self.game.buttons)
+            )
 
             if self.button_clicked(click) == Button.OK.value:
+                return
+            if click.board is not self.game.mainBoard:
+                continue
+            square = click.board.get_square(click.pos)
+            if not isinstance(square, Landscape):
+                continue
+
+            if square.player is self.opponent and square.resourcesHeld >= 1:
+                opponentLandSelected = square
+                selectedPos = click.pos
+
+            if opponentLandSelected is not None and square.player is self and square.resourcesHeld < 3 and square.resource == opponentLandSelected.resource:
+                opponentLandSelected.resourcesHeld -= 1
+                square.resourcesHeld += 1
+                self.game.mainBoard.refresh_square(selectedPos)
+                self.game.mainBoard.refresh_square(click.pos)
+                return
+
+
+    def pick_any_resource(self) -> None:
+        while True:
+            click = self.game.display.get_mouse_click(
+                ClickFilter(board=self.game.mainBoard, cardTypes=ResourceList, player=self),
+                ClickFilter(board=self.game.buttons)
+            )
+
+            if self.button_clicked(click) == Button.CANCEL.value:
                 return
 
             if click.board is not self.game.mainBoard:
@@ -99,7 +132,8 @@ class HumanPlayer(Player):
             click.board.refresh_square(click.pos)
             return
 
-
+    def refill_hand(self) -> None:
+        pass
 
     def throw_dice(self) -> None:
         # click on button

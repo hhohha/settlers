@@ -73,10 +73,10 @@ class Player(ABC):
     def refill_hand(self) -> None:
         pass
 
-    #@abstractmethod
+    @abstractmethod
     def pick_any_resource(self) -> None:
         pass
 
-    #@abstractmethod
+    @abstractmethod
     def grab_any_resource(self) -> None:
         pass

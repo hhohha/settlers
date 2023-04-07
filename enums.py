@@ -3,6 +3,7 @@ from enum import Enum
 class Button(Enum):
     NO_BUTTON = -1
     OK = 0
+    CANCEL = 2
 
 class GameStage(Enum):
     NONE = 0
