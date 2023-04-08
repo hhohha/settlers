@@ -3,7 +3,11 @@ from enum import Enum
 class Button(Enum):
     NO_BUTTON = -1
     OK = 0
-    CANCEL = 2
+    CANCEL = 1
+    END_TURN = 2
+    UNKNOWN1 = 3
+    UNKNOWN2 = 4
+    UNKNOWN3 = 5
 
 class GameStage(Enum):
     NONE = 0
@@ -44,12 +48,12 @@ class ActionCardType(Enum):
     SPY = 9
 
 class Resource(Enum):
-    GRAIN = 0
-    SHEEP = 1
-    ROCK = 2
-    BRICK = 3
-    WOOD = 4
-    GOLD = 5
+    GRAIN = 'grain'
+    SHEEP = 'sheep'
+    ROCK = 'rock'
+    BRICK = 'brick'
+    WOOD = 'wood'
+    GOLD = 'gold'
 
 class ActionType(Enum):
     BUILD_FROM_HAND = 0

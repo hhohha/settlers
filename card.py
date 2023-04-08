@@ -23,11 +23,13 @@ class Landscape(Card):
         self.resource: Resource = resource
         self.diceNumber = diceNumber
         self.resourcesHeld = 0
+        self.resourceYield = 1 # how many resources gained when yielding, can be increased by mills
         self.isProtectedByWarehouse = False
 
 class Path(Card):
     def __init__(self, player: Optional[Player] = None):
         super().__init__('path', player)
+        self.cost: Cost = Cost(brick=2, wood=1)
 
 class Settlement(Card, ABC):
     def __init__(self, name: str, player: Optional[Player]):
@@ -36,10 +38,12 @@ class Settlement(Card, ABC):
 class Village(Settlement):
     def __init__(self, player: Optional[Player] = None):
         super().__init__('village', player)
+        self.cost: Cost = Cost(wood=1, sheep=1, brick=1, grain=1)
 
 class Town(Settlement):
     def __init__(self, player: Optional[Player] = None):
         super().__init__('town', player)
+        self.cost: Cost = Cost(rock=3, grain=2)
 
 class Event(Card):
     def __init__(self, name: str, eventType: EventCardType):

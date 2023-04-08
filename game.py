@@ -67,6 +67,8 @@ class Game:
     def get_filtered_click(self, clickFilters: List[ClickFilter]=[]) -> MouseClick:
         while True:
             click = self.display.get_mouse_click()
+            if click.board.get_square(click.pos) is None:
+                continue
             if not clickFilters:
                 return click
             for clickFilter in clickFilters:
@@ -188,8 +190,15 @@ class Game:
         for card in pile:
             self.choiceBoard.set_next_square(card)
 
-    def throw_yield_dice(self) -> None:
-        self.yieldDice = random.randint(1, 6)
+    def throw_yield_dice(self) -> int:
+        return random.randint(1, 6)
+
+    def land_yield(self, number: int):
+        for player in [self.player1, self.player2]:
+            for land, pos in player.landscapeCards.items():
+                if land.diceNumber == number and land.resourcesHeld < config.MAX_LAND_RESOURCES:
+                    land.resourcesHeld = min(land.resourcesHeld + land.resourceYield, config.MAX_LAND_RESOURCES)
+                    self.mainBoard.refresh_square(pos)
 
     def throw_event_dice(self) -> DiceEvent:
         return DiceEvents[random.randint(1, 6)]

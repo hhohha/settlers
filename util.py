@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Union, Tuple, TYPE_CHECKING, List, Optional
 from dataclasses import dataclass
-from enums import DiceEvent
+from enums import DiceEvent, Resource
 
 if TYPE_CHECKING:
     from player import Player
@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 Pile = List['Playable']
 
-ResourceList = ['gold', 'rock', 'sheep', 'wood', 'brick', 'grain']
+RESOURCE_LIST = ['gold', 'rock', 'sheep', 'wood', 'brick', 'grain']
 
 @dataclass
 class ClickFilter:
@@ -33,14 +33,26 @@ class ClickFilter:
 
         return True
 
-@dataclass(frozen=True)
+@dataclass(frozen=False)
 class Cost:
     grain: int = 0
     sheep: int = 0
     rock: int = 0
     brick: int = 0
     wood: int = 0
+    gold: int = 0
 
+    def get(self, resource: Resource) -> int:
+        return getattr(self, resource.value)
+
+    def take(self, resource: Resource) -> None:
+        setattr(resource.value, self.get(resource) - 1)
+
+    def __ge__ (self, other):
+        all([getattr(self, resource) >= getattr(other, resource) for resource in RESOURCE_LIST])
+
+    def is_zero(self):
+        all([getattr(self, resource) == 0 for resource in RESOURCE_LIST])
 
 @dataclass(frozen=True)
 class Pos:

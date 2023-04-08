@@ -2,10 +2,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Dict, Optional
 
-from util import Pos
+from enums import Resource
+from util import Pos, Cost
 
 if TYPE_CHECKING:
-    from card import Playable, Landscape, Knight, Fleet, Building
+    from card import Playable, Landscape, Knight, Fleet, Building, Settlement
     from game import Game
     from board import Board
 
@@ -29,6 +30,25 @@ class Player(ABC):
         self.midPos: Pos = midPos
         self.initialLandPos: List[Pos] = [midPos.up(1), midPos.down(1), midPos + Pos(2, 1), midPos + Pos(2, -1),
                                           midPos + Pos(-2, 1), midPos + Pos(-2, -1)]
+
+    def get_resources_available(self) -> Cost:
+        resources: Dict[Resource, int] = {
+            Resource.BRICK: 0,
+            Resource.WOOD: 0,
+            Resource.ROCK: 0,
+            Resource.GRAIN: 0,
+            Resource.GOLD: 0,
+            Resource.SHEEP: 0
+        }
+
+        for land in self.landscapeCards:
+            resources[land.resource] += land.resourcesHeld
+
+        return Cost(brick=resources[Resource.BRICK], wood=resources[Resource.WOOD], rock=resources[Resource.ROCK],
+                    grain=resources[Resource.GRAIN], gold=resources[Resource.GOLD], sheep=resources[Resource.SHEEP])
+
+    def can_cover_cost(self, cost: Cost) -> bool:
+        return self.get_resources_available() >= cost
 
     def setup_land_card(self, card: Landscape):
         pos = self.initialLandPos.pop()
@@ -62,6 +82,14 @@ class Player(ABC):
         for card in self.cardsInHand:
             self.handBoard.set_next_square(card)
 
+    def is_next_to_settlement(self, pos: Pos) -> bool:
+        posRight, posLeft = pos.right(1), pos.left(1)
+        b = self.game.mainBoard
+        if posRight.x < b.size.x and isinstance(b.get_square(posRight), Settlement):
+            return True
+
+        return posLeft.x >= 0 and isinstance(b.get_square(posLeft), Settlement)
+
     @abstractmethod
     def initial_land_setup(self) -> None:
         pass
@@ -74,7 +102,7 @@ class Player(ABC):
     def throw_dice(self) -> None:
         pass
 
-    #@abstractmethod
+    @abstractmethod
     def do_actions(self) -> None:
         pass
 

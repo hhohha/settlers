@@ -44,6 +44,9 @@ class LandscapeData(TypedDict):
     count: int
     player: Optional[int]
 
+class InfraCardData(TypedDict):
+    name: str
+
 class NamedData(TypedDict):
     name: str
 
@@ -213,7 +216,7 @@ class CardData:
     INFRA_CARD_LIST: List[NamedData] = [
         {'name': 'path'},
         {'name': 'village'},
-        {'name': 'town'},
+        {'name': 'town'}
     ]
 
     META_CARD_LIST: List[NamedData] = [
@@ -232,4 +235,5 @@ class CardData:
     CARD_NAMES.update({card['name'] for card in ACTION_CARD_LIST})
     CARD_NAMES.update({card['name'] for card in EVENT_CARD_LIST})
     CARD_NAMES.update({card['name'] for card in LANDSCAPE_CARD_LIST})
-    CARD_NAMES.update({card['name'] for card in INFRA_CARD_LIST + META_CARD_LIST})
+    CARD_NAMES.update({card['name'] for card in INFRA_CARD_LIST})
+    CARD_NAMES.update({card['name'] for card in META_CARD_LIST})
