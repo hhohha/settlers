@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, List, Dict, Optional
+from typing import TYPE_CHECKING, List, Dict, Optional, Type
 
 from enums import Resource
 from util import Pos, Cost
@@ -82,13 +82,13 @@ class Player(ABC):
         for card in self.cardsInHand:
             self.handBoard.set_next_square(card)
 
-    def is_next_to_settlement(self, pos: Pos) -> bool:
+    def is_next_to(self, pos: Pos, cardType: Type) -> bool:
         posRight, posLeft = pos.right(1), pos.left(1)
         b = self.game.mainBoard
-        if posRight.x < b.size.x and isinstance(b.get_square(posRight), Settlement):
+        if posRight.x < b.size.x and isinstance(b.get_square(posRight), cardType):
             return True
 
-        return posLeft.x >= 0 and isinstance(b.get_square(posLeft), Settlement)
+        return posLeft.x >= 0 and isinstance(b.get_square(posLeft), cardType)
 
     @abstractmethod
     def initial_land_setup(self) -> None:

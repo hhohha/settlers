@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 from abc import ABC
-from typing import Optional
+from typing import Optional, List, TYPE_CHECKING
 from enums import Resource, BuildingType, ActionCardType, EventCardType
-from player import Player
-from util import Cost
+from util import Cost, Pos
+if TYPE_CHECKING:
+    from player import Player
+    from board import Board
 
 
 class Card(ABC):
@@ -29,21 +33,37 @@ class Landscape(Card):
 class Path(Card):
     def __init__(self, player: Optional[Player] = None):
         super().__init__('path', player)
-        self.cost: Cost = Cost(brick=2, wood=1)
+
+    cost: Cost = Cost(brick=2, wood=1)
 
 class Settlement(Card, ABC):
-    def __init__(self, name: str, player: Optional[Player]):
+    def __init__(self, name: str, pos: Pos, player: Player):
         super().__init__(name, player)
+        self.player = player
+        self.pos: Pos = pos
 
 class Village(Settlement):
-    def __init__(self, player: Optional[Player] = None):
-        super().__init__('village', player)
-        self.cost: Cost = Cost(wood=1, sheep=1, brick=1, grain=1)
+    def __init__(self, board: Board, pos: Pos, player: Player = None):
+        super().__init__('village', pos, player)
+        self.squares: List[Pos] = [pos.up(1), pos.down(1)]
+        for pos in self.squares:
+            card = board.get_square(pos)
+            if card is not None:
+                card.settlement = self
+
+    cost: Cost = Cost(wood=1, sheep=1, brick=1, grain=1)
 
 class Town(Settlement):
-    def __init__(self, player: Optional[Player] = None):
-        super().__init__('town', player)
-        self.cost: Cost = Cost(rock=3, grain=2)
+    def __init__(self, board: Board, pos: Pos, player: Player = None):
+        super().__init__('town', pos, player)
+        self.cards: List[Building | Knight | Fleet] = []
+        self.squares: List[Pos] = [pos.up(1), pos.down(1), pos.up(2), pos.down(2)]
+        for pos in self.squares:
+            card = board.get_square(pos)
+            if card is not None:
+                card.settlement = self
+
+    cost: Cost = Cost(rock=3, grain=2)
 
 class Event(Card):
     def __init__(self, name: str, eventType: EventCardType):
@@ -67,6 +87,7 @@ class Building(Playable):
         self.victoryPoints = victoryPoints
         self.tradePoints = tradePoints
         self.buildingType: BuildingType = buildingType
+        self.settlement: Optional[Settlement] = None
 
 class Knight(Playable):
     def __init__(self, name: str, cost: Cost, tournamentStrength: int, battleStrength: int, player: Optional[Player] = None):
@@ -74,6 +95,7 @@ class Knight(Playable):
         self.cost = cost
         self.tournamentStrength = tournamentStrength
         self.battleStrength = battleStrength
+        self.settlement: Optional[Settlement] = None
 
 class Fleet(Playable):
     def __init__(self, name: str, cost: Cost, affectedResource: Resource, tradePoints, player: Optional[Player] = None):
@@ -81,3 +103,4 @@ class Fleet(Playable):
         self.cost = cost
         self.affectedResource: affectedResource
         self.tradePoints = tradePoints
+        self.settlement: Optional[Settlement] = None

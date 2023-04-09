@@ -5,7 +5,7 @@ from typing import Optional, TYPE_CHECKING
 from enums import Button, DiceEvent
 from player import Player
 from util import Pos, MouseClick, Pile, ClickFilter, RESOURCE_LIST, Cost
-from card import Landscape, Playable, Path, Card
+from card import Landscape, Playable, Path, Card, Town, Village, Settlement, Action
 
 if TYPE_CHECKING:
     from game import Game
@@ -167,6 +167,7 @@ class HumanPlayer(Player):
         return square.name == name
 
     def pay(self, cost: Cost) -> None:
+        self.game.display.print_msg('now you need to pay')
         costToPay = copy.copy(cost)
 
         while not costToPay.is_zero():
@@ -182,10 +183,13 @@ class HumanPlayer(Player):
                 card.resourcesHeld -= 1
                 self.game.mainBoard.refresh_square(click.pos)
 
-    def buildPath(self) -> None:
-        path = Path()
-        if not self.can_cover_cost(path.cost):
-            print('you cannot affort a path')
+    def build_path(self) -> None:
+        if self.game.paths < 1:
+            print('no path left')
+            return
+
+        if not self.can_cover_cost(Path.cost):
+            print('you cannot afford a path')
             return
 
         while True:
@@ -195,11 +199,88 @@ class HumanPlayer(Player):
             if self.button_clicked(click) == Button.CANCEL.value:
                 return
 
-            if card.name != 'empty' or not self.is_next_to_settlement(click.pos):
+            if card.name != 'empty' or click.pos.y != self.midPos.y or not self.is_next_to(click.pos, Settlement):
                 continue
 
-            self.game.mainBoard.set_square(click.pos, path)
-            self.pay(path.cost)
+            self.game.paths -= 1
+            self.game.mainBoard.set_square(click.pos, Path())
+            self.pay(Path.cost)
+            return
+
+    def build_town(self) -> None:
+        if self.game.towns < 1:
+            print('no town left')
+            return
+
+        if not self.can_cover_cost(Town.cost):
+            print('you cannot afford a town')
+            return
+
+        while True:
+            click = self.game.get_filtered_click()
+            card = click.board.get_square(click.pos)
+
+            if self.button_clicked(click) == Button.CANCEL.value:
+                return
+
+            if card.name != 'village' and card.player is not self:
+                continue
+
+            self.game.towns -= 1
+            self.game.mainBoard.set_square(click.pos, Town(click.board, click.pos, self))
+            self.pay(Town.cost)
+            return
+
+    def build_village(self) -> None:
+        if self.game.villages < 1:
+            print('no village left')
+            return
+
+        if not self.can_cover_cost(Village.cost):
+            print('you cannot afford a village')
+            return
+
+        while True:
+            click = self.game.get_filtered_click()
+            card = click.board.get_square(click.pos)
+
+            if self.button_clicked(click) == Button.CANCEL.value:
+                return
+
+            if card.name != 'empty' or click.pos.y != self.midPos.y or not self.is_next_to(click.pos, Path):
+                continue
+
+            self.game.villages -= 1
+            self.game.mainBoard.set_square(click.pos, Village(click.board, click.pos, self))
+            self.pay(Village.cost)
+            return
+
+
+    def play_action_card(self, card: Action) -> None:
+        pass
+
+    def play_card_from_hand(self, card: Playable) -> None:
+        if isinstance(card, Action):
+            self.play_action_card(card)
+            return
+
+        if not self.can_cover_cost(card.cost):
+            return
+
+        while True:
+            click = self.game.get_filtered_click()
+            emptyCard = click.board.get_square(click.pos)
+
+            if self.button_clicked(click) == Button.CANCEL.value:
+                return
+
+            if emptyCard.name != 'empty' or not hasattr(emptyCard, 'settlement') or emptyCard.settlement.player is not self:
+                continue
+
+            self.game.mainBoard.set_square(click.pos, card)
+            self.cardsInHand.remove(card)
+            self.refresh_hand_board()
+            self.pay(card.cost)
             return
 
 
@@ -212,26 +293,15 @@ class HumanPlayer(Player):
 
             if self.button_clicked(click) == Button.END_TURN.value:
                 return
-
             elif click.board is self.game.mainBoard and card.name == 'back_path':
-                self.buildPath()
-
+                self.build_path()
             elif click.board is self.game.mainBoard and card.name == 'back_town':
-                # build town
-                pass
-
+                self.build_town()
             elif click.board is self.game.mainBoard and card.name == 'back_village':
-                # build village
-                pass
-
+                self.build_village()
             elif click.board is self.handBoard and isinstance(card, Playable):
-                # use card from hand
-                pass
-
+                self.play_card_from_hand(card)
             elif click.board is self.game.mainBoard and isinstance(card, Landscape) and card.player is self:
-                # exchange goods
-                pass
-
+                pass # exchange goods
             elif click.board is self.game.mainBoard and isinstance(card, Playable):
-                # take card back
-                pass
+                pass  # take card back

@@ -46,13 +46,13 @@ class Cost:
         return getattr(self, resource.value)
 
     def take(self, resource: Resource) -> None:
-        setattr(resource.value, self.get(resource) - 1)
+        setattr(self, resource.value, self.get(resource) - 1)
 
-    def __ge__ (self, other):
-        all([getattr(self, resource) >= getattr(other, resource) for resource in RESOURCE_LIST])
+    def __ge__ (self, other) -> bool:
+        return all([getattr(self, resource) >= getattr(other, resource) for resource in RESOURCE_LIST])
 
-    def is_zero(self):
-        all([getattr(self, resource) == 0 for resource in RESOURCE_LIST])
+    def is_zero(self) -> bool:
+        return all([getattr(self, resource) == 0 for resource in RESOURCE_LIST])
 
 @dataclass(frozen=True)
 class Pos:

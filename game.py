@@ -75,22 +75,14 @@ class Game:
                 if clickFilter.accepts(click):
                     return click
 
-
-    def create_infra_card(self, cardType: Type[Village | Path | Town]):
-        if self.infraCardsLeft[cardType] > 0:
-            self.infraCardsLeft[cardType] -= 1
-            return cardType()
-        else:
-            raise ValueError(f'cannot create more infra cards of type: {cardType}')
-
     def init_main_board(self):
         for pos in (Pos(x, y) for x in range(self.mainBoard.size.x) for y in range(self.mainBoard.size.y)):
             self.mainBoard.set_square(pos, MetaCard('empty'))
 
         for player in [self.player1, self.player2]:
-            self.mainBoard.set_square(player.midPos, self.create_infra_card(Path))
-            self.mainBoard.set_square(player.midPos.right(1), self.create_infra_card(Village))
-            self.mainBoard.set_square(player.midPos.left(1), self.create_infra_card(Village))
+            self.mainBoard.set_square(player.midPos, Path())
+            self.mainBoard.set_square(player.midPos.right(1), Village(self.mainBoard, player.midPos.right(1), player))
+            self.mainBoard.set_square(player.midPos.left(1), Village(self.mainBoard, player.midPos.left(1), player))
 
         self.mainBoard.set_square(Pos(0, 5), MetaCard('back_event'))
         self.mainBoard.set_square(Pos(1, 5), MetaCard('back_land'))

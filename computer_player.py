@@ -36,9 +36,13 @@ class ComputerPlayer(Player):
         self.refresh_hand_board()
 
     def throw_dice(self) -> None:
+        print('opponent throwing dice')
         event = self.game.throw_event_dice()
+        print(f'event: {event}')
         self.game.handle_dice_events(event)
-        self.game.throw_yield_dice()
+        diceNumber = self.game.throw_yield_dice()
+        print(f'yield: {diceNumber}')
+        self.game.land_yield(diceNumber)
 
 
     def do_actions(self) -> None:
