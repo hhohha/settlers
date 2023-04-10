@@ -10,11 +10,13 @@ if TYPE_CHECKING:
 Pile = List['Playable']
 
 RESOURCE_LIST = ['gold', 'rock', 'sheep', 'wood', 'brick', 'grain']
+CARDS_INCREASING_HAND_CNT = ['library', 'cloister']
 
 @dataclass
 class ClickFilter:
     board: Optional[Board] = None
     cardTypes: Optional[List[str]] = None
+    cardTypesNeg: bool = False
     player: Optional[Player] = None
 
     def accepts(self, click: MouseClick) -> bool:
@@ -25,8 +27,12 @@ class ClickFilter:
         if square is None:
             return False
 
-        if self.cardTypes is not None and square.name not in self.cardTypes:
-            return False
+        if self.cardTypesNeg:
+            if self.cardTypes is not None and square.name in self.cardTypes:
+                return False
+        else:
+            if self.cardTypes is not None and square.name not in self.cardTypes:
+                return False
 
         if self.player is not None and self.player is not square.player:
             return False

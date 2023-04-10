@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Dict, Optional, Type
 
 from enums import Resource
-from util import Pos, Cost
+from util import Pos, Cost, CARDS_INCREASING_HAND_CNT
 
 if TYPE_CHECKING:
     from card import Playable, Landscape, Knight, Fleet, Building, Settlement
@@ -73,7 +73,7 @@ class Player(ABC):
         self.game.player1Board.set_next_square(card)
 
     def add_card(self, card: Playable):
-        if len(self.cardsInHand) >= self.cardsInHandCnt:
+        if len(self.cardsInHand) >= self.get_hand_cards_cnt():
             raise ValueError(f'cannot take a card, already at max')
         self.cardsInHand.append(card)
 
@@ -89,6 +89,9 @@ class Player(ABC):
             return True
 
         return posLeft.x >= 0 and isinstance(b.get_square(posLeft), cardType)
+
+    def get_hand_cards_cnt(self) -> int:
+        return self.cardsInHandCnt + len([True for b in self.buildingsPlayed if b.name in CARDS_INCREASING_HAND_CNT])
 
     @abstractmethod
     def initial_land_setup(self) -> None:
@@ -106,7 +109,7 @@ class Player(ABC):
     def do_actions(self) -> None:
         pass
 
-    #@abstractmethod
+    @abstractmethod
     def refill_hand(self) -> None:
         pass
 

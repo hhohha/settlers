@@ -141,10 +141,6 @@ class HumanPlayer(Player):
             if self.button_clicked(click) == Button.OK.value:
                 return
 
-
-    def refill_hand(self) -> None:
-        pass
-
     def throw_dice(self) -> None:
         self.game.display.print_msg('click to toss event dice')
         self.wait_for_ok()
@@ -253,7 +249,21 @@ class HumanPlayer(Player):
             self.game.villages -= 1
             self.game.mainBoard.set_square(click.pos, Village(click.board, click.pos, self))
             self.pay(Village.cost)
+
+            if click.pos.x > self.midPos.x:
+                landPos = Pos(click.pos.x + 1, click.pos.y + 1), Pos(click.pos.x + 1, click.pos.y - 1)
+            else:
+                landPos =  Pos(click.pos.x - 1, click.pos.y + 1), Pos(click.pos.x - 1, click.pos.y - 1)
+
+            self.place_new_land(*landPos)
             return
+
+    def place_new_land(self, pos1: Pos, pos2: Pos) -> None:
+        for pos in [pos1, pos2]:
+            newLand = self.game.landscapeCards.pop()
+            self.game.mainBoard.set_square(pos, newLand)
+            newLand.player = self
+            self.landscapeCards[newLand] = pos
 
 
     def play_action_card(self, card: Action) -> None:
@@ -283,6 +293,15 @@ class HumanPlayer(Player):
             self.pay(card.cost)
             return
 
+    def refill_hand(self) -> None:
+        maxCardsInHand = self.get_hand_cards_cnt()
+        while len(self.cardsInHand) != maxCardsInHand:
+            if len(self.cardsInHand) > maxCardsInHand:
+                click = self.game.get_filtered_click(ClickFilter(board=self.handBoard, ))
+            else:
+                self.select_pile()
+
+                # pick a pile or pay resources
 
 
     def do_actions(self) -> None:
