@@ -1,13 +1,14 @@
 from __future__ import annotations
-from typing import Union, Tuple, TYPE_CHECKING, List, Optional
+from typing import Union, Tuple, TYPE_CHECKING, List, Optional, Type, Callable
 from dataclasses import dataclass
 from enums import DiceEvent, Resource
 
 if TYPE_CHECKING:
     from player import Player
     from board import Board
+    from card import Playable, Card
 
-Pile = List['Playable']
+    Pile = List[Playable]
 
 RESOURCE_LIST = ['gold', 'rock', 'sheep', 'wood', 'brick', 'grain']
 CARDS_INCREASING_HAND_CNT = ['library', 'cloister']
@@ -15,26 +16,34 @@ CARDS_INCREASING_HAND_CNT = ['library', 'cloister']
 @dataclass
 class ClickFilter:
     board: Optional[Board] = None
-    cardTypes: Optional[List[str]] = None
-    cardTypesNeg: bool = False
+    cardType: Optional[Type] = None
+    cardNames: Optional[List[str]] = None
+    cardNamesNeg: bool = False
     player: Optional[Player] = None
+    check: Optional[Callable] = None
 
     def accepts(self, click: MouseClick) -> bool:
         if self.board is not None and self.board is not click.board:
             return False
 
-        square = click.board.get_square(click.pos)
+        square: Optional[Card] = click.board.get_square(click.pos)
         if square is None:
             return False
 
-        if self.cardTypesNeg:
-            if self.cardTypes is not None and square.name in self.cardTypes:
+        if self.cardType is not None and not isinstance(square, self.cardType):
+            return False
+
+        if self.cardNamesNeg:
+            if self.cardNames is not None and square.name in self.cardNames:
                 return False
         else:
-            if self.cardTypes is not None and square.name not in self.cardTypes:
+            if self.cardNames is not None and square.name not in self.cardNames:
                 return False
 
         if self.player is not None and self.player is not square.player:
+            return False
+
+        if self.check is not None and not self.check():
             return False
 
         return True
@@ -98,16 +107,16 @@ class Pos:
     def __le__(self, other):
         return self.x <= other.x and self.y <= other.y
 
-    def up(self, n: int) -> 'Pos':
+    def up(self, n: int = 1) -> 'Pos':
         return Pos(self.x, self.y - n)
 
-    def down(self, n: int) -> 'Pos':
+    def down(self, n: int = 1) -> 'Pos':
         return Pos(self.x, self.y + n)
 
-    def right(self, n: int) -> 'Pos':
+    def right(self, n: int = 1) -> 'Pos':
         return Pos(self.x + n, self.y)
 
-    def left(self, n: int) -> 'Pos':
+    def left(self, n: int = 1) -> 'Pos':
         return Pos(self.x - n, self.y)
 
     def tuple(self) -> Tuple[int, int]:

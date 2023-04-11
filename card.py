@@ -43,9 +43,9 @@ class Settlement(Card, ABC):
         self.pos: Pos = pos
 
 class Village(Settlement):
-    def __init__(self, board: Board, pos: Pos, player: Player = None):
+    def __init__(self, board: Board, pos: Pos, player):
         super().__init__('village', pos, player)
-        self.squares: List[Pos] = [pos.up(1), pos.down(1)]
+        self.squares: List[Pos] = [pos.up(), pos.down()]
         for pos in self.squares:
             card = board.get_square(pos)
             if card is not None:
@@ -54,10 +54,10 @@ class Village(Settlement):
     cost: Cost = Cost(wood=1, sheep=1, brick=1, grain=1)
 
 class Town(Settlement):
-    def __init__(self, board: Board, pos: Pos, player: Player = None):
+    def __init__(self, board: Board, pos: Pos, player):
         super().__init__('town', pos, player)
         self.cards: List[Building | Knight | Fleet] = []
-        self.squares: List[Pos] = [pos.up(1), pos.down(1), pos.up(2), pos.down(2)]
+        self.squares: List[Pos] = [pos.up(), pos.down(), pos.up(2), pos.down(2)]
         for pos in self.squares:
             card = board.get_square(pos)
             if card is not None:
@@ -82,25 +82,25 @@ class Action(Playable):
 class Building(Playable):
     def __init__(self, name: str, buildingType: BuildingType, cost: Cost, townOnly: bool, victoryPoints: int, tradePoints: int, player: Optional[Player] = None):
         super().__init__(name, player)
-        self.cost = cost
-        self.townOnly = townOnly
-        self.victoryPoints = victoryPoints
-        self.tradePoints = tradePoints
+        self.cost: Cost = cost
+        self.townOnly: bool = townOnly
+        self.victoryPoints: int = victoryPoints
+        self.tradePoints: int = tradePoints
         self.buildingType: BuildingType = buildingType
         self.settlement: Optional[Settlement] = None
 
 class Knight(Playable):
     def __init__(self, name: str, cost: Cost, tournamentStrength: int, battleStrength: int, player: Optional[Player] = None):
         super().__init__(name, player)
-        self.cost = cost
-        self.tournamentStrength = tournamentStrength
-        self.battleStrength = battleStrength
+        self.cost: Cost = cost
+        self.tournamentStrength: int = tournamentStrength
+        self.battleStrength: int = battleStrength
         self.settlement: Optional[Settlement] = None
 
 class Fleet(Playable):
     def __init__(self, name: str, cost: Cost, affectedResource: Resource, tradePoints, player: Optional[Player] = None):
         super().__init__(name, player)
-        self.cost = cost
-        self.affectedResource: affectedResource
-        self.tradePoints = tradePoints
+        self.cost: Cost = cost
+        self.affectedResource: Resource = affectedResource
+        self.tradePoints: int = tradePoints
         self.settlement: Optional[Settlement] = None

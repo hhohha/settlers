@@ -1,12 +1,13 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Set
+from typing import TYPE_CHECKING, Set, Optional, Type
 
+from card import Town, Path, Village
 from enums import Resource
 from player import Player
 
 if TYPE_CHECKING:
     from game import Game
-    from util import Pile, Pos
+    from util import Pile, Pos, Cost
     from board import Board
 
 class ComputerPlayer(Player):
@@ -44,6 +45,11 @@ class ComputerPlayer(Player):
         print(f'yield: {diceNumber}')
         self.game.land_yield(diceNumber)
 
+    def get_new_village_position(self) -> Optional[Pos]:
+        pass
+
+    def pay(self, cost: Cost) -> None:
+        pass
 
     def do_actions(self) -> None:
         pass
@@ -54,6 +60,9 @@ class ComputerPlayer(Player):
         while len(self.cardsInHand) < self.cardsInHandCnt:
             self.add_card(pile.pop())
         self.refresh_hand_board()
+
+    def get_new_infra_position(self, infraType: Type[Village | Town | Path]) -> Optional[Pos]:
+        pass
 
     def grab_any_resource(self) -> None:
         # TODO - improve, currently it gets anything available

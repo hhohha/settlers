@@ -1,15 +1,15 @@
 from __future__ import annotations
-
 import copy
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Type
 from enums import Button, DiceEvent
 from player import Player
-from util import Pos, MouseClick, Pile, ClickFilter, RESOURCE_LIST, Cost
+from util import Pos, MouseClick, ClickFilter, RESOURCE_LIST, Cost
 from card import Landscape, Playable, Path, Card, Town, Village, Settlement, Action
 
 if TYPE_CHECKING:
     from game import Game
     from board import Board
+    from util import Pile
 
 
 class HumanPlayer(Player):
@@ -168,7 +168,7 @@ class HumanPlayer(Player):
 
         while not costToPay.is_zero():
             click = self.game.get_filtered_click(
-                [ClickFilter(board=self.game.mainBoard, cardTypes=RESOURCE_LIST, player=self)]
+                [ClickFilter(board=self.game.mainBoard, cardNames=RESOURCE_LIST, player=self)]
             )
 
             card: Card = click.board.get_square(click.pos)
@@ -179,91 +179,25 @@ class HumanPlayer(Player):
                 card.resourcesHeld -= 1
                 self.game.mainBoard.refresh_square(click.pos)
 
-    def build_path(self) -> None:
-        if self.game.paths < 1:
-            print('no path left')
-            return
-
-        if not self.can_cover_cost(Path.cost):
-            print('you cannot afford a path')
-            return
-
+    def get_new_infra_position(self, infraType: Type[Village | Path | Town]) -> Optional[Pos]:
         while True:
             click = self.game.get_filtered_click()
             card = click.board.get_square(click.pos)
 
             if self.button_clicked(click) == Button.CANCEL.value:
-                return
+                return None
 
-            if card.name != 'empty' or click.pos.y != self.midPos.y or not self.is_next_to(click.pos, Settlement):
-                continue
-
-            self.game.paths -= 1
-            self.game.mainBoard.set_square(click.pos, Path())
-            self.pay(Path.cost)
-            return
-
-    def build_town(self) -> None:
-        if self.game.towns < 1:
-            print('no town left')
-            return
-
-        if not self.can_cover_cost(Town.cost):
-            print('you cannot afford a town')
-            return
-
-        while True:
-            click = self.game.get_filtered_click()
-            card = click.board.get_square(click.pos)
-
-            if self.button_clicked(click) == Button.CANCEL.value:
-                return
-
-            if card.name != 'village' and card.player is not self:
-                continue
-
-            self.game.towns -= 1
-            self.game.mainBoard.set_square(click.pos, Town(click.board, click.pos, self))
-            self.pay(Town.cost)
-            return
-
-    def build_village(self) -> None:
-        if self.game.villages < 1:
-            print('no village left')
-            return
-
-        if not self.can_cover_cost(Village.cost):
-            print('you cannot afford a village')
-            return
-
-        while True:
-            click = self.game.get_filtered_click()
-            card = click.board.get_square(click.pos)
-
-            if self.button_clicked(click) == Button.CANCEL.value:
-                return
-
-            if card.name != 'empty' or click.pos.y != self.midPos.y or not self.is_next_to(click.pos, Path):
-                continue
-
-            self.game.villages -= 1
-            self.game.mainBoard.set_square(click.pos, Village(click.board, click.pos, self))
-            self.pay(Village.cost)
-
-            if click.pos.x > self.midPos.x:
-                landPos = Pos(click.pos.x + 1, click.pos.y + 1), Pos(click.pos.x + 1, click.pos.y - 1)
+            if infraType == Village:
+                if card.name == 'empty' and click.pos.y == self.midPos.y and self.is_next_to(click.pos, Path):
+                    return click.pos
+            elif infraType == Town:
+                if card.name == 'village' and card.player is self:
+                    return click.pos
+            elif infraType == Path:
+                if card.name == 'empty' and click.pos.y == self.midPos.y and self.is_next_to(click.pos, Settlement):
+                    return click.pos
             else:
-                landPos =  Pos(click.pos.x - 1, click.pos.y + 1), Pos(click.pos.x - 1, click.pos.y - 1)
-
-            self.place_new_land(*landPos)
-            return
-
-    def place_new_land(self, pos1: Pos, pos2: Pos) -> None:
-        for pos in [pos1, pos2]:
-            newLand = self.game.landscapeCards.pop()
-            self.game.mainBoard.set_square(pos, newLand)
-            newLand.player = self
-            self.landscapeCards[newLand] = pos
+                raise ValueError(f'unknown infra type: {infraType}')
 
 
     def play_action_card(self, card: Action) -> None:
@@ -297,7 +231,7 @@ class HumanPlayer(Player):
         maxCardsInHand = self.get_hand_cards_cnt()
         while len(self.cardsInHand) != maxCardsInHand:
             if len(self.cardsInHand) > maxCardsInHand:
-                click = self.game.get_filtered_click(ClickFilter(board=self.handBoard, ))
+                click = self.game.get_filtered_click(ClickFilter(board=self.handBoard))
             else:
                 self.select_pile()
 

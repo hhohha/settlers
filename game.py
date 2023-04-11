@@ -8,8 +8,10 @@ from card_data import CardData
 from human_player import HumanPlayer
 import config
 from player import Player
-from util import DiceEvents, Pos, MouseClick, Pile, ClickFilter
+from util import DiceEvents, Pos, MouseClick, ClickFilter
 from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable
+
+Pile = List[Playable]
 
 class Game:
     def __init__(self):
@@ -49,11 +51,6 @@ class Game:
             Town: config.TOWNS_COUNT
         }
 
-        self.paths: int = config.PATHS_COUNT
-        self.villages: int = config.VILLAGES_COUNT
-        self.towns: int = config.TOWNS_COUNT
-
-
         self.setup_playable_cards()
         self.init_main_board()
         self.setup_landscape_cards()
@@ -81,8 +78,8 @@ class Game:
 
         for player in [self.player1, self.player2]:
             self.mainBoard.set_square(player.midPos, Path())
-            self.mainBoard.set_square(player.midPos.right(1), Village(self.mainBoard, player.midPos.right(1), player))
-            self.mainBoard.set_square(player.midPos.left(1), Village(self.mainBoard, player.midPos.left(1), player))
+            self.mainBoard.set_square(player.midPos.right(), Village(self.mainBoard, player.midPos.right(), player))
+            self.mainBoard.set_square(player.midPos.left(), Village(self.mainBoard, player.midPos.left(), player))
 
         self.mainBoard.set_square(Pos(0, 5), MetaCard('back_event'))
         self.mainBoard.set_square(Pos(1, 5), MetaCard('back_land'))

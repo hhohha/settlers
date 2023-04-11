@@ -6,7 +6,7 @@ from enums import Resource
 from util import Pos, Cost, CARDS_INCREASING_HAND_CNT
 
 if TYPE_CHECKING:
-    from card import Playable, Landscape, Knight, Fleet, Building, Settlement
+    from card import Playable, Landscape, Knight, Fleet, Building, Settlement, Village, Town, Path
     from game import Game
     from board import Board
 
@@ -28,7 +28,7 @@ class Player(ABC):
         self.buildingsPlayed: Dict[Building, Pos] = {}
         self.handBoardVisible: bool = handBoardVisible
         self.midPos: Pos = midPos
-        self.initialLandPos: List[Pos] = [midPos.up(1), midPos.down(1), midPos + Pos(2, 1), midPos + Pos(2, -1),
+        self.initialLandPos: List[Pos] = [midPos.up(), midPos.down(), midPos + Pos(2, 1), midPos + Pos(2, -1),
                                           midPos + Pos(-2, 1), midPos + Pos(-2, -1)]
 
     def get_resources_available(self) -> Cost:
@@ -83,7 +83,7 @@ class Player(ABC):
             self.handBoard.set_next_square(card)
 
     def is_next_to(self, pos: Pos, cardType: Type) -> bool:
-        posRight, posLeft = pos.right(1), pos.left(1)
+        posRight, posLeft = pos.right(), pos.left()
         b = self.game.mainBoard
         if posRight.x < b.size.x and isinstance(b.get_square(posRight), cardType):
             return True
@@ -92,6 +92,48 @@ class Player(ABC):
 
     def get_hand_cards_cnt(self) -> int:
         return self.cardsInHandCnt + len([True for b in self.buildingsPlayed if b.name in CARDS_INCREASING_HAND_CNT])
+
+    def place_new_land(self, villagePos: Pos) -> None:
+        if villagePos.x > self.midPos.x:
+            landPositions = villagePos.up().right(), villagePos.down().right()
+        else:
+            landPositions = villagePos.up().left(), villagePos.down().left()
+
+        for pos in landPositions:
+            newLand = self.game.landscapeCards.pop()
+            self.game.mainBoard.set_square(pos, newLand)
+            newLand.player = self
+            self.landscapeCards[newLand] = pos
+
+    def build_infrastructure(self, infraType: Type[Village | Town | Path]) -> None:
+        if self.game.infraCardsLeft[infraType] < 1:
+            print(f'no more cards {infraType} left')
+            return
+        if not self.can_cover_cost(infraType.cost):
+            print(f'you cannot afford this: {infraType}')
+
+        pos: Optional[Pos] = self.get_new_infra_position(infraType)
+        if pos is None:
+            return
+
+        self.game.infraCardsLeft[infraType] -= 1
+        if infraType is Path:
+            newCard = Path()
+        else:
+            newCard = infraType(self.game.mainBoard, pos, self)
+
+        self.game.mainBoard.set_square(pos, newCard)
+        self.pay(infraType.cost)
+        if infraType is Village:
+            self.place_new_land(pos)
+
+    @abstractmethod
+    def get_new_infra_position(self, infraType: Type[Village | Town | Path]) -> Optional[Pos]:
+        pass
+
+    @abstractmethod
+    def pay(self, cost: Cost) -> None:
+        pass
 
     @abstractmethod
     def initial_land_setup(self) -> None:
