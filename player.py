@@ -1,14 +1,14 @@
 from __future__ import annotations
 import copy
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, List, Dict, Optional, Type, Callable
-
+from typing import TYPE_CHECKING, List, Dict, Optional, Type
+from card import Action
 from enums import Resource
-from util import Pos, Cost, CARDS_INCREASING_HAND_CNT, BROWSE_DISCOUNT_BUILDINGS, ClickFilter, RESOURCE_LIST
+from util import Pos, Cost, CARDS_INCREASING_HAND_CNT, BROWSE_DISCOUNT_BUILDINGS
 
 if TYPE_CHECKING:
-    from card import Playable, Landscape, Knight, Fleet, Building, Village, Town, Path, Action, Card
-    from game import Game
+    from card import Playable, Landscape, Knight, Fleet, Building, Village, Town, Path
+    from game import Game, Pile
     from board import Board
 
 class Player(ABC):
@@ -171,6 +171,36 @@ class Player(ABC):
             card.resourcesHeld -= 1
             self.game.mainBoard.refresh_square(self.landscapeCards[card])
 
+    def refill_hand(self) -> None:
+        maxCardsInHand = self.get_hand_cards_cnt()
+        if len(self.cardsInHand) < maxCardsInHand:
+            while len(self.cardsInHand) < maxCardsInHand:
+                pile = self.select_pile()
+                payToBrowse = 1 if self.has_browse_discount() else 2
+                if self.can_cover_cost(payToBrowse) and self.decide_browse_pile():
+                    self.pay(payToBrowse)
+                else:
+                    self.cardsInHand.append(pile.pop())
+                    self.refresh_hand_board()
+        else:
+            if len(self.cardsInHand) > maxCardsInHand:
+                while len(self.cardsInHand) > maxCardsInHand:
+                    idx = self.select_card_to_throw_away()
+                    self.cardsInHand.pop(idx)
+                    self.refresh_hand_board()
+            if self.swap_one_card():
+                idx = self.select_card_to_throw_away()
+                self.cardsInHand.pop(idx)
+                self.refresh_hand_board()
+                self.refill_hand()
+
+    @abstractmethod
+    def select_pile(self) -> Pile:
+        pass
+
+    @abstractmethod
+    def swap_one_card(self) -> bool:
+        pass
 
     @abstractmethod
     def play_action_card(self, card: Action) -> None:
@@ -181,7 +211,7 @@ class Player(ABC):
         pass
 
     @abstractmethod
-    def get_new_infra_position(self, infraType: Type[Village | Town | Path]) -> Optional[Pos]:
+    def select_card_to_pay(self, resource: Optional[Resource]) -> Landscape:
         pass
 
     @abstractmethod
@@ -201,10 +231,6 @@ class Player(ABC):
         pass
 
     @abstractmethod
-    def refill_hand(self) -> None:
-        pass
-
-    @abstractmethod
     def pick_any_resource(self) -> None:
         pass
 
@@ -217,5 +243,5 @@ class Player(ABC):
         pass
 
     @abstractmethod
-    def select_card_to_pay(self, resource: Optional[Resource]) -> Landscape:
+    def select_card_to_throw_away(self) -> int:
         pass

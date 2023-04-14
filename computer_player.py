@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Set, Optional, Type
 
-from card import Town, Path, Village
+from card import Town, Path, Village, Playable, Action, Landscape
 from enums import Resource
 from player import Player
 
@@ -84,6 +84,23 @@ class ComputerPlayer(Player):
                 self.game.mainBoard.refresh_square(self.landscapeCards[land])
                 return
 
+    def decide_browse_pile(self) -> bool:
+        return False
 
+    def get_new_card_position(self, infraType: Type[Village | Path | Town | Playable], townOnly=False) -> Optional[Pos]:
+        return None
 
+    def play_action_card(self, card: Action) -> None:
+        pass
 
+    def select_card_to_pay(self, resource: Optional[Resource]) -> Landscape:
+        pass
+
+    def select_pile(self) -> Pile:
+        return self.game.cardPiles[0]
+
+    def swap_one_card(self) -> bool:
+        return False
+
+    def select_card_to_throw_away(self) -> int:
+        return 0

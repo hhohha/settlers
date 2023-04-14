@@ -45,7 +45,8 @@ class HumanPlayer(Player):
                 landSelected = None
 
     def select_pile(self) -> Pile:
-        board, pos = self.game.get_filtered_click([ClickFilter(board=self.game.mainBoard, cardTypes=['back'])]).tuple()
+        self.game.display.print_msg('select a pile')
+        board, pos = self.game.get_filtered_click([ClickFilter(board=self.game.mainBoard, cardNames=['back'])]).tuple()
         pileIdx = pos.x - board.size.x + len(self.game.cardPiles)
         return self.game.cardPiles[pileIdx]
 
@@ -72,7 +73,6 @@ class HumanPlayer(Player):
             selectedCardIdx = cardIdx
 
     def pick_starting_cards(self) -> None:
-        self.game.display.print_msg('select pile')
         pile = self.select_pile()
         self.game.display.print_msg('select cards')
         while len(self.cardsInHand) < self.cardsInHandCnt:
@@ -80,12 +80,13 @@ class HumanPlayer(Player):
         self.game.choiceBoard.clear()
 
     def grab_any_resource(self) -> None:
+        self.game.display.print_msg('grab a resource')
         opponentLandSelected: Optional[Landscape] = None
         selectedPos: Optional[Pos] = None
 
         while True:
             click = self.game.display.get_mouse_click(
-                ClickFilter(board=self.game.mainBoard, cardTypes=RESOURCE_LIST),
+                ClickFilter(board=self.game.mainBoard, cardNames=RESOURCE_LIST),
                 ClickFilter(board=self.game.buttons)
             )
 
@@ -113,7 +114,7 @@ class HumanPlayer(Player):
         self.game.display.print_msg('pick a resource')
         while True:
             click = self.game.get_filtered_click(
-                [ClickFilter(board=self.game.mainBoard, cardTypes=RESOURCE_LIST, player=self),
+                [ClickFilter(board=self.game.mainBoard, cardNames=RESOURCE_LIST, player=self),
                 ClickFilter(board=self.game.buttons)]
             )
 
@@ -156,6 +157,7 @@ class HumanPlayer(Player):
         self.game.land_yield(diceNumber)
 
     def select_card_to_pay(self, cost: Optional[Cost]=None) -> Card:
+        self.game.display.print_msg('select card to pay')
         while True:
             click = self.game.get_filtered_click(
                 [ClickFilter(board=self.game.mainBoard, cardNames=RESOURCE_LIST, player=self)]
@@ -168,6 +170,7 @@ class HumanPlayer(Player):
                 return card
 
     def get_new_card_position(self, infraType: Type[Village | Path | Town | Playable], townOnly=False) -> Optional[Pos]:
+        self.game.display.print_msg('choose card location')
         while True:
             click = self.game.get_filtered_click()
             card = click.board.get_square(click.pos)
@@ -193,41 +196,29 @@ class HumanPlayer(Player):
             else:
                 raise ValueError(f'unknown infra type: {infraType}')
 
+    def swap_one_card(self) -> bool:
+        self.game.display.print_msg('will you swap one card?')
+        return self.ok_or_cancel()
 
     def play_action_card(self, card: Action) -> None:
         pass
 
     def decide_browse_pile(self) -> bool:
-        print('will you brose a pile?')
+        self.game.display.print_msg('will you browse a pile?')
+        return self.ok_or_cancel()
+
+    def select_card_to_throw_away(self) -> int:
+        self.game.display.print_msg('select card to throw away')
+        click = self.game.get_filtered_click([ClickFilter(board=self.handBoard)])
+        return click.board.to_int(click.pos)
+
+    def ok_or_cancel(self) -> bool:
         while True:
             click = self.game.get_filtered_click()
             if self.button_clicked(click) == Button.OK.value:
                 return True
             if self.button_clicked(click) == Button.CANCEL.value:
                 return False
-
-    def refill_hand(self) -> None:
-        maxCardsInHand = self.get_hand_cards_cnt()
-        if len(self.cardsInHand) < maxCardsInHand:
-            while len(self.cardsInHand) < maxCardsInHand:
-                pile = self.select_pile()
-                payToBrowse = 1 if self.has_browse_discount() else 2
-                if self.can_cover_cost(payToBrowse) and self.decide_browse_pile():
-                    self.pay(payToBrowse)
-                else:
-                    self.cardsInHand.append(pile.pop())
-                    self.refresh_hand_board()
-        else:
-            if len(self.cardsInHand) > maxCardsInHand:
-                while len(self.cardsInHand) > maxCardsInHand:
-                    idx = self.select_card_to_throw_away()
-                    self.cardsInHand.pop(idx)
-                    self.refresh_hand_board()
-            if self.swap_one_card():
-                idx = self.select_card_to_throw_away()
-                self.cardsInHand.pop(idx)
-                self.refresh_hand_board()
-                self.refill_hand()
 
     def do_actions(self) -> None:
         while True:
