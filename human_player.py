@@ -1,10 +1,9 @@
 from __future__ import annotations
-import copy
 from typing import Optional, TYPE_CHECKING, Type
-from enums import Button, DiceEvent
+from enums import Button, DiceEvent, Resource
 from player import Player
 from util import Pos, MouseClick, ClickFilter, RESOURCE_LIST, Cost
-from card import Landscape, Playable, Path, Card, Town, Village, Settlement, Action
+from card import Landscape, Playable, Path, Card, Town, Village, Settlement, Action, Building
 
 if TYPE_CHECKING:
     from game import Game
@@ -156,30 +155,19 @@ class HumanPlayer(Player):
 
         self.game.land_yield(diceNumber)
 
-    def clicked_card_equals(self, click: MouseClick, name: str) -> bool:
-        square = click.board.get_square(click.pos)
-        if square is None:
-            return False
-        return square.name == name
-
-    def pay(self, cost: Cost) -> None:
-        self.game.display.print_msg('now you need to pay')
-        costToPay = copy.copy(cost)
-
-        while not costToPay.is_zero():
+    def select_card_to_pay(self, cost: Optional[Cost]=None) -> Card:
+        while True:
             click = self.game.get_filtered_click(
                 [ClickFilter(board=self.game.mainBoard, cardNames=RESOURCE_LIST, player=self)]
             )
-
             card: Card = click.board.get_square(click.pos)
             if not isinstance(card, Landscape):
                 continue
-            if card.resourcesHeld > 0 and costToPay.get(card.resource) > 0:
-                costToPay.take(card.resource)
-                card.resourcesHeld -= 1
-                self.game.mainBoard.refresh_square(click.pos)
 
-    def get_new_infra_position(self, infraType: Type[Village | Path | Town]) -> Optional[Pos]:
+            if card.resourcesHeld > 0 and (cost is None or cost.get(card.resource) > 0):
+                return card
+
+    def get_new_card_position(self, infraType: Type[Village | Path | Town | Playable], townOnly=False) -> Optional[Pos]:
         while True:
             click = self.game.get_filtered_click()
             card = click.board.get_square(click.pos)
@@ -196,6 +184,12 @@ class HumanPlayer(Player):
             elif infraType == Path:
                 if card.name == 'empty' and click.pos.y == self.midPos.y and self.is_next_to(click.pos, Settlement):
                     return click.pos
+            elif infraType == Playable:
+                if card.name == 'empty' and hasattr(card, 'settlement') and card.settlement.player is self:
+                    if townOnly and isinstance(card.settlement, Village):
+                        print('this card needs to be placed in a town')
+                        continue
+                    return click.pos
             else:
                 raise ValueError(f'unknown infra type: {infraType}')
 
@@ -203,40 +197,37 @@ class HumanPlayer(Player):
     def play_action_card(self, card: Action) -> None:
         pass
 
-    def play_card_from_hand(self, card: Playable) -> None:
-        if isinstance(card, Action):
-            self.play_action_card(card)
-            return
-
-        if not self.can_cover_cost(card.cost):
-            return
-
+    def decide_browse_pile(self) -> bool:
+        print('will you brose a pile?')
         while True:
             click = self.game.get_filtered_click()
-            emptyCard = click.board.get_square(click.pos)
-
+            if self.button_clicked(click) == Button.OK.value:
+                return True
             if self.button_clicked(click) == Button.CANCEL.value:
-                return
-
-            if emptyCard.name != 'empty' or not hasattr(emptyCard, 'settlement') or emptyCard.settlement.player is not self:
-                continue
-
-            self.game.mainBoard.set_square(click.pos, card)
-            self.cardsInHand.remove(card)
-            self.refresh_hand_board()
-            self.pay(card.cost)
-            return
+                return False
 
     def refill_hand(self) -> None:
         maxCardsInHand = self.get_hand_cards_cnt()
-        while len(self.cardsInHand) != maxCardsInHand:
+        if len(self.cardsInHand) < maxCardsInHand:
+            while len(self.cardsInHand) < maxCardsInHand:
+                pile = self.select_pile()
+                payToBrowse = 1 if self.has_browse_discount() else 2
+                if self.can_cover_cost(payToBrowse) and self.decide_browse_pile():
+                    self.pay(payToBrowse)
+                else:
+                    self.cardsInHand.append(pile.pop())
+                    self.refresh_hand_board()
+        else:
             if len(self.cardsInHand) > maxCardsInHand:
-                click = self.game.get_filtered_click(ClickFilter(board=self.handBoard))
-            else:
-                self.select_pile()
-
-                # pick a pile or pay resources
-
+                while len(self.cardsInHand) > maxCardsInHand:
+                    idx = self.select_card_to_throw_away()
+                    self.cardsInHand.pop(idx)
+                    self.refresh_hand_board()
+            if self.swap_one_card():
+                idx = self.select_card_to_throw_away()
+                self.cardsInHand.pop(idx)
+                self.refresh_hand_board()
+                self.refill_hand()
 
     def do_actions(self) -> None:
         while True:
@@ -247,11 +238,11 @@ class HumanPlayer(Player):
             if self.button_clicked(click) == Button.END_TURN.value:
                 return
             elif click.board is self.game.mainBoard and card.name == 'back_path':
-                self.build_path()
+                self.build_infrastructure(Path)
             elif click.board is self.game.mainBoard and card.name == 'back_town':
-                self.build_town()
+                self.build_infrastructure(Town)
             elif click.board is self.game.mainBoard and card.name == 'back_village':
-                self.build_village()
+                self.build_infrastructure(Village)
             elif click.board is self.handBoard and isinstance(card, Playable):
                 self.play_card_from_hand(card)
             elif click.board is self.game.mainBoard and isinstance(card, Landscape) and card.player is self:

@@ -48,7 +48,7 @@ class ComputerPlayer(Player):
     def get_new_village_position(self) -> Optional[Pos]:
         pass
 
-    def pay(self, cost: Cost) -> None:
+    def pay(self, cost: Cost | int) -> None:
         pass
 
     def do_actions(self) -> None:

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 RESOURCE_LIST = ['gold', 'rock', 'sheep', 'wood', 'brick', 'grain']
 CARDS_INCREASING_HAND_CNT = ['library', 'cloister']
+BROWSE_DISCOUNT_BUILDINGS = ['town_hall']
 
 @dataclass
 class ClickFilter:
@@ -68,6 +69,9 @@ class Cost:
 
     def is_zero(self) -> bool:
         return all([getattr(self, resource) == 0 for resource in RESOURCE_LIST])
+
+    def total(self) -> int:
+        return self.gold + self.sheep + self.grain + self.brick + self.rock + self.wood
 
 @dataclass(frozen=True)
 class Pos:

@@ -1,12 +1,13 @@
 from __future__ import annotations
+import copy
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, List, Dict, Optional, Type
+from typing import TYPE_CHECKING, List, Dict, Optional, Type, Callable
 
 from enums import Resource
-from util import Pos, Cost, CARDS_INCREASING_HAND_CNT
+from util import Pos, Cost, CARDS_INCREASING_HAND_CNT, BROWSE_DISCOUNT_BUILDINGS, ClickFilter, RESOURCE_LIST
 
 if TYPE_CHECKING:
-    from card import Playable, Landscape, Knight, Fleet, Building, Settlement, Village, Town, Path
+    from card import Playable, Landscape, Knight, Fleet, Building, Village, Town, Path, Action, Card
     from game import Game
     from board import Board
 
@@ -47,14 +48,23 @@ class Player(ABC):
         return Cost(brick=resources[Resource.BRICK], wood=resources[Resource.WOOD], rock=resources[Resource.ROCK],
                     grain=resources[Resource.GRAIN], gold=resources[Resource.GOLD], sheep=resources[Resource.SHEEP])
 
-    def can_cover_cost(self, cost: Cost) -> bool:
-        return self.get_resources_available() >= cost
+    def can_cover_cost(self, cost: Cost | int) -> bool:
+        if isinstance(cost, Cost):
+            return self.get_resources_available() >= cost
+        else:
+            return self.get_resources_available().total() >= cost
 
     def setup_land_card(self, card: Landscape):
         pos = self.initialLandPos.pop()
         print(pos, card)
         self.landscapeCards[card] = pos
         self.game.mainBoard.set_square(pos, card)
+
+    def has_browse_discount(self) -> bool:
+        for cardName in BROWSE_DISCOUNT_BUILDINGS:
+            if cardName in map(lambda b: b.name, self.buildingsPlayed):
+                return True
+        return False
 
     def get_tournament_strength(self) -> int:
         return sum(map(lambda k: k.tournamentStrength, self.knightsPlayed))
@@ -105,6 +115,25 @@ class Player(ABC):
             newLand.player = self
             self.landscapeCards[newLand] = pos
 
+    def play_card_from_hand(self, card: Playable) -> None:
+        if isinstance(card, Action):
+            self.play_action_card(card)
+            return
+
+        if not self.can_cover_cost(card.cost):
+            print('you cannot afford to play this')
+            return
+
+        townOnly: bool = card.townOnly if isinstance(card, Building) else False
+        pos: Optional[Pos] = self.get_new_card_position(Playable, townOnly)
+        if pos is None:
+            return
+
+        self.game.mainBoard.set_square(pos, card)
+        self.cardsInHand.remove(card)
+        self.refresh_hand_board()
+        self.pay(card.cost)
+
     def build_infrastructure(self, infraType: Type[Village | Town | Path]) -> None:
         if self.game.infraCardsLeft[infraType] < 1:
             print(f'no more cards {infraType} left')
@@ -112,7 +141,7 @@ class Player(ABC):
         if not self.can_cover_cost(infraType.cost):
             print(f'you cannot afford this: {infraType}')
 
-        pos: Optional[Pos] = self.get_new_infra_position(infraType)
+        pos: Optional[Pos] = self.get_new_card_position(infraType)
         if pos is None:
             return
 
@@ -127,12 +156,32 @@ class Player(ABC):
         if infraType is Village:
             self.place_new_land(pos)
 
+
+    def pay(self, cost: Cost | int) -> None:
+        self.game.display.print_msg('now you need to pay')
+        costToPay = copy.copy(cost)
+
+        while not (costToPay.is_zero() if isinstance(cost, Cost) else costToPay == 0):
+            card: Landscape = self.select_card_to_pay(None if isinstance(cost, int) else costToPay)
+
+            if isinstance(cost, Cost):
+                costToPay.take(card.resource)
+            else:
+                cost -= 1
+            card.resourcesHeld -= 1
+            self.game.mainBoard.refresh_square(self.landscapeCards[card])
+
+
     @abstractmethod
-    def get_new_infra_position(self, infraType: Type[Village | Town | Path]) -> Optional[Pos]:
+    def play_action_card(self, card: Action) -> None:
         pass
 
     @abstractmethod
-    def pay(self, cost: Cost) -> None:
+    def get_new_card_position(self, infraType: Type[Village | Path | Town | Playable], townOnly=False) -> Optional[Pos]:
+        pass
+
+    @abstractmethod
+    def get_new_infra_position(self, infraType: Type[Village | Town | Path]) -> Optional[Pos]:
         pass
 
     @abstractmethod
@@ -161,4 +210,12 @@ class Player(ABC):
 
     @abstractmethod
     def grab_any_resource(self) -> None:
+        pass
+
+    @abstractmethod
+    def decide_browse_pile(self) -> bool:
+        pass
+
+    @abstractmethod
+    def select_card_to_pay(self, resource: Optional[Resource]) -> Landscape:
         pass
