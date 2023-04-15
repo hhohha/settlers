@@ -3,8 +3,9 @@ import copy
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Dict, Optional, Type
 from card import Action
+from config import BROWSE_DISCOUNT_BUILDINGS, CARDS_INCREASING_HAND_CNT, STOLEN_AMBUSH_RESOURCES
 from enums import Resource
-from util import Pos, Cost, CARDS_INCREASING_HAND_CNT, BROWSE_DISCOUNT_BUILDINGS, STOLEN_AMBUSH_RESOURCES
+from util import Pos, Cost
 
 if TYPE_CHECKING:
     from card import Playable, Landscape, Knight, Fleet, Building, Village, Town, Path
@@ -23,10 +24,10 @@ class Player(ABC):
         self.battlePoints = 0
         self.cardsInHandCnt: int = 3
         self.cardsInHand: List[Playable] = []
-        self.landscapeCards: Dict[Landscape, Pos] = {}
-        self.knightsPlayed: Dict[Knight, Pos] = {}
-        self.fleetPlayed:  Dict[Fleet, Pos] = {}
-        self.buildingsPlayed: Dict[Building, Pos] = {}
+        self.landscapeCards: List[Landscape] = []
+        self.knightsPlayed: List[Knight] = []
+        self.fleetPlayed:  List[Fleet] = []
+        self.buildingsPlayed: List[Building] = []
         self.handBoardVisible: bool = handBoardVisible
         self.midPos: Pos = midPos
         self.initialLandPos: List[Pos] = [midPos.up(), midPos.down(), midPos + Pos(2, 1), midPos + Pos(2, -1),
@@ -55,10 +56,9 @@ class Player(ABC):
             return self.get_resources_available().total() >= cost
 
     def setup_land_card(self, card: Landscape):
-        pos = self.initialLandPos.pop()
-        print(pos, card)
-        self.landscapeCards[card] = pos
-        self.game.mainBoard.set_square(pos, card)
+        card.pos = self.initialLandPos.pop()
+        self.landscapeCards.append(card)
+        self.game.mainBoard.set_square(card.pos, card)
 
     def has_browse_discount(self) -> bool:
         for cardName in BROWSE_DISCOUNT_BUILDINGS:
@@ -113,7 +113,8 @@ class Player(ABC):
             newLand = self.game.landscapeCards.pop()
             self.game.mainBoard.set_square(pos, newLand)
             newLand.player = self
-            self.landscapeCards[newLand] = pos
+            self.landscapeCards.append(newLand)
+            newLand.pos = pos
 
     def play_card_from_hand(self, card: Playable) -> None:
         if isinstance(card, Action):
@@ -130,18 +131,28 @@ class Player(ABC):
             return
 
         self.game.mainBoard.set_square(pos, card)
+        card.pos = pos
+
+        if isinstance(card, Building):
+            self.buildingsPlayed.append(card)
+        elif isinstance(card, Knight):
+            self.knightsPlayed.append(card)
+        elif isinstance(card, Fleet):
+            self.fleetPlayed.append(card)
+
+        self.apply_card_effect()
         self.cardsInHand.remove(card)
         self.refresh_hand_board()
         self.pay(card.cost)
 
     def get_unprotected_resources_cnt(self) -> int:
-        return sum(map(lambda l: 0 if l.protected_by_warehouse() else l.resourcesHeld, self.landscapeCards))
+        return sum(map(lambda l: 0 if l.protectedByWarehouse() else l.resourcesHeld, self.landscapeCards))
 
-    def lose_ambush_resource(self):
+    def lose_ambush_resources(self):
         for land in self.landscapeCards:
             if land.resource.value in STOLEN_AMBUSH_RESOURCES:
                 land.resourcesHeld = 0
-                self.game.mainBoard.refresh_square(self.landscapeCards[land])
+                self.game.mainBoard.refresh_square(land.pos)
 
     def build_infrastructure(self, infraType: Type[Village | Town | Path]) -> None:
         if self.game.infraCardsLeft[infraType] < 1:
@@ -178,7 +189,7 @@ class Player(ABC):
             else:
                 costToPay -= 1
             card.resourcesHeld -= 1
-            self.game.mainBoard.refresh_square(self.landscapeCards[card])
+            self.game.mainBoard.refresh_square(card.pos)
 
     def refill_hand(self, canSwap: bool) -> None:
         maxCardsInHand = self.get_hand_cards_cnt()

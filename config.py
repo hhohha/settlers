@@ -21,3 +21,10 @@ BACKGROUND_IMAGE = (240, 220, 200)
 CARD_IMG_SIZE_BIG = 480, 480
 
 MAX_LAND_RESOURCES = 3
+
+RESOURCE_LIST = ['gold', 'rock', 'sheep', 'wood', 'brick', 'grain']
+CARDS_INCREASING_HAND_CNT = ['library', 'cloister']
+BROWSE_DISCOUNT_BUILDINGS = ['town_hall']
+STOLEN_AMBUSH_RESOURCES = ['rock', 'sheep']
+
+AMBUSH_MAX_RESOURCES = 7

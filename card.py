@@ -27,9 +27,7 @@ class Landscape(Card):
         self.resource: Resource = resource
         self.diceNumber = diceNumber
         self.resourcesHeld = 0
-        self.protectedByWarehouse = False
-        self.resourceYield = 1 # how many resources gained when yielding, can be increased by mills
-        self.isProtectedByWarehouse = False
+        self.pos: Optional[Pos] = None
 
 class Path(Card):
     def __init__(self, player: Optional[Player] = None):
@@ -74,6 +72,7 @@ class Event(Card):
 class Playable(Card, ABC):
     def __init__(self, name: str, player: Optional[Player]):
         super().__init__(name, player)
+        self.pos: Optional[Pos] = None
 
 class Action(Playable):
     def __init__(self, name: str, actionType: ActionCardType, player: Optional[Player] = None):

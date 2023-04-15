@@ -1,7 +1,8 @@
 from __future__ import annotations
-from typing import Union, Tuple, TYPE_CHECKING, List, Optional, Type, Callable
+from typing import Union, Tuple, TYPE_CHECKING, List, Optional, Type, Callable, Dict
 from dataclasses import dataclass
-from enums import DiceEvent, Resource
+from config import RESOURCE_LIST
+from enums import DiceEvent, Resource, BuildingType
 
 if TYPE_CHECKING:
     from player import Player
@@ -10,12 +11,14 @@ if TYPE_CHECKING:
 
     Pile = List[Playable]
 
-RESOURCE_LIST = ['gold', 'rock', 'sheep', 'wood', 'brick', 'grain']
-CARDS_INCREASING_HAND_CNT = ['library', 'cloister']
-BROWSE_DISCOUNT_BUILDINGS = ['town_hall']
-STOLEN_AMBUSH_RESOURCES = ['rock', 'sheep']
 
-AMBUSH_MAX_RESOURCES = 7
+MILLS_EFFECTS: Dict[Resource, BuildingType] = {
+    Resource.GRAIN: BuildingType.MILL,
+    Resource.BRICK: BuildingType.BRICKYARD,
+    Resource.ROCK: BuildingType.STEEL_MILL,
+    Resource.SHEEP: BuildingType.SPINNING_MILL,
+    Resource.WOOD: BuildingType.SAWMILL
+}
 
 @dataclass
 class ClickFilter:
