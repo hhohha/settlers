@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Dict, Optional, Type
 from card import Action
 from enums import Resource
-from util import Pos, Cost, CARDS_INCREASING_HAND_CNT, BROWSE_DISCOUNT_BUILDINGS
+from util import Pos, Cost, CARDS_INCREASING_HAND_CNT, BROWSE_DISCOUNT_BUILDINGS, STOLEN_AMBUSH_RESOURCES
 
 if TYPE_CHECKING:
     from card import Playable, Landscape, Knight, Fleet, Building, Village, Town, Path
@@ -134,6 +134,15 @@ class Player(ABC):
         self.refresh_hand_board()
         self.pay(card.cost)
 
+    def get_unprotected_resources_cnt(self) -> int:
+        return sum(map(lambda l: 0 if l.protected_by_warehouse() else l.resourcesHeld, self.landscapeCards))
+
+    def lose_ambush_resource(self):
+        for land in self.landscapeCards:
+            if land.resource.value in STOLEN_AMBUSH_RESOURCES:
+                land.resourcesHeld = 0
+                self.game.mainBoard.refresh_square(self.landscapeCards[land])
+
     def build_infrastructure(self, infraType: Type[Village | Town | Path]) -> None:
         if self.game.infraCardsLeft[infraType] < 1:
             print(f'no more cards {infraType} left')
@@ -167,11 +176,11 @@ class Player(ABC):
             if isinstance(cost, Cost):
                 costToPay.take(card.resource)
             else:
-                cost -= 1
+                costToPay -= 1
             card.resourcesHeld -= 1
             self.game.mainBoard.refresh_square(self.landscapeCards[card])
 
-    def refill_hand(self) -> None:
+    def refill_hand(self, canSwap: bool) -> None:
         maxCardsInHand = self.get_hand_cards_cnt()
         if len(self.cardsInHand) < maxCardsInHand:
             while len(self.cardsInHand) < maxCardsInHand:
@@ -179,6 +188,7 @@ class Player(ABC):
                 payToBrowse = 1 if self.has_browse_discount() else 2
                 if self.can_cover_cost(payToBrowse) and self.decide_browse_pile():
                     self.pay(payToBrowse)
+                    self.get_card_from_choice(pile)
                 else:
                     self.cardsInHand.append(pile.pop())
                     self.refresh_hand_board()
@@ -188,11 +198,11 @@ class Player(ABC):
                     idx = self.select_card_to_throw_away()
                     self.cardsInHand.pop(idx)
                     self.refresh_hand_board()
-            if self.swap_one_card():
+            if canSwap and self.swap_one_card():
                 idx = self.select_card_to_throw_away()
                 self.cardsInHand.pop(idx)
                 self.refresh_hand_board()
-                self.refill_hand()
+                self.refill_hand(False)
 
     @abstractmethod
     def select_pile(self) -> Pile:

@@ -54,13 +54,6 @@ class ComputerPlayer(Player):
     def do_actions(self) -> None:
         pass
 
-    def refill_hand(self) -> None:
-        # TODO - improve, obviously
-        pile = self.selectPile()
-        while len(self.cardsInHand) < self.cardsInHandCnt:
-            self.add_card(pile.pop())
-        self.refresh_hand_board()
-
     def get_new_infra_position(self, infraType: Type[Village | Town | Path]) -> Optional[Pos]:
         pass
 

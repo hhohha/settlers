@@ -8,7 +8,7 @@ from card_data import CardData
 from human_player import HumanPlayer
 import config
 from player import Player
-from util import DiceEvents, Pos, MouseClick, ClickFilter
+from util import DiceEvents, Pos, MouseClick, ClickFilter, AMBUSH_MAX_RESOURCES
 from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable
 
 Pile = List[Playable]
@@ -136,35 +136,65 @@ class Game:
         self.player1.pick_any_resource()
         self.player2.pick_any_resource()
 
+    def event_ambush(self) -> None:
+        for player in [self.player1, self.player2]:
+            if player.get_unprotected_resources_cnt() > AMBUSH_MAX_RESOURCES:
+                player.lose_ambush_resources()
+
     def handle_dice_events(self, event: DiceEvent):
         if event == DiceEvent.TOURNAMENT:
             self.event_tournament()
         elif event == DiceEvent.TRADE_PROFIT:
             self.event_trade_profit()
         elif event == DiceEvent.AMBUSH:
-            pass
+            self.event_ambush()
         elif event == DiceEvent.GOOD_HARVEST:
             self.event_good_harvest()
         elif event == DiceEvent.CARD_EVENT:
-            pass
+            self.card_event()
         else:
             raise ValueError(f'unknown dice event: {event}')
 
-    def handle_card_event(self, event: EventCardType):
+
+    def card_event_builder(self) -> None:
+        pass
+
+    def card_event_civil_war(self) -> None:
+        pass
+
+    def card_event_rich_year(self) -> None:
+        pass
+
+    def card_event_advance(self) -> None:
+        pass
+
+    def card_event_new_year(self) -> None:
+        random.shuffle(self.eventCards)
+
+    def card_event_conflict(self) -> None:
+        pass
+
+    def card_event_plaque(self) -> None:
+        pass
+
+
+    def card_event(self):
+        event: Event = self.eventCards.pop(0)
+        self.eventCards.append(event)
         if event == EventCardType.BUILDER:
-            pass
+            self.card_event_builder()
         elif event == EventCardType.CIVIL_WAR:
-            pass
+            self.card_event_civil_war()
         elif event == EventCardType.RICH_YEAR:
-            pass
+            self.card_event_rich_year()
         elif event == EventCardType.ADVANCE:
-            pass
+            self.card_event_advance()
         elif event == EventCardType.NEW_YEAR:
-            pass
+            self.card_event_new_year()
         elif event == EventCardType.CONFLICT:
-            pass
+            self.card_event_conflict()
         elif event == EventCardType.PLAQUE:
-            pass
+            self.card_event_plaque()
         else:
             raise ValueError(f'unknown card event: {event}')
 
@@ -199,12 +229,11 @@ class Game:
         for player in [self.player1, self.player2]:
             player.pick_starting_cards()
 
+        player: Player = self.player1
         while not self.is_victory():
-            for player in [self.player1, self.player2]:
-                player.throw_dice()
-                player.do_actions()
-                for p in [self.player1, self.player2]:
-                    p.refill_hand()
-
-        self.display.get_mouse_click()
+            player.throw_dice()
+            player.do_actions()
+            player.refill_hand(True)
+            player.opponent.refill_hand(False)
+            player = player.opponent
 

@@ -27,6 +27,7 @@ class Landscape(Card):
         self.resource: Resource = resource
         self.diceNumber = diceNumber
         self.resourcesHeld = 0
+        self.protectedByWarehouse = False
         self.resourceYield = 1 # how many resources gained when yielding, can be increased by mills
         self.isProtectedByWarehouse = False
 
