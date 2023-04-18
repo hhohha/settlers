@@ -1,8 +1,6 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Set, Optional, Type
-
+from typing import TYPE_CHECKING, Optional, Type
 from card import Town, Path, Village, Playable, Action, Landscape
-from enums import Resource
 from player import Player
 
 if TYPE_CHECKING:
@@ -59,14 +57,16 @@ class ComputerPlayer(Player):
 
     def grab_any_resource(self) -> None:
         # TODO - improve, currently it gets anything available
+        assert self.opponent is not None
         for opponentLand in self.opponent.landscapeCards:
             if opponentLand.resourcesHeld > 0:
                 for myLand in self.landscapeCards:
                     if myLand.resource == opponentLand.resource and myLand.resourcesHeld < 3:
-                        opponentLand -= 1
-                        myLand += 1
-                        self.game.mainBoard.refresh_square(self.landscapeCards[myLand])
-                        self.game.mainBoard.refresh_square(self.opponent.landscapeCards[opponentLand])
+                        opponentLand.resourcesHeld -= 1
+                        myLand.resourcesHeld += 1
+                        assert myLand.pos is not None and opponentLand.pos is not None
+                        self.game.mainBoard.refresh_square(myLand.pos)
+                        self.game.mainBoard.refresh_square(opponentLand.pos)
                         return
 
     def pick_any_resource(self) -> None:
@@ -74,7 +74,8 @@ class ComputerPlayer(Player):
         for land in self.landscapeCards:
             if land.resourcesHeld < 3:
                 land.resourcesHeld += 1
-                self.game.mainBoard.refresh_square(self.landscapeCards[land])
+                assert land.pos is not None
+                self.game.mainBoard.refresh_square(land.pos)
                 return
 
     def decide_browse_pile(self) -> bool:
@@ -86,7 +87,7 @@ class ComputerPlayer(Player):
     def play_action_card(self, card: Action) -> None:
         pass
 
-    def select_card_to_pay(self, resource: Optional[Resource]) -> Landscape:
+    def select_card_to_pay(self, resource: Optional[Cost]) -> Landscape:
         pass
 
     def select_pile(self) -> Pile:

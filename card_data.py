@@ -1,6 +1,6 @@
 import random
-from typing import List, TypedDict, Optional, Set, Any
-from card import Landscape, Event, Playable, Fleet, Knight, Building, Action, Card
+from typing import List, TypedDict, Optional, Set
+from card import Landscape, Event, Playable, Fleet, Knight, Building, Action
 from enums import BuildingType, Resource, ActionCardType, EventCardType
 from player import Player
 from util import Cost

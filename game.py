@@ -1,15 +1,15 @@
 import random
-from typing import List, Optional, Type, Tuple, TYPE_CHECKING
+from typing import List, Optional
 from board import Board
 from computer_player import ComputerPlayer
 from display_handler import DisplayHandler
-from enums import ActionType, DiceEvent, EventCardType, GameStage, Button
+from enums import DiceEvent, EventCardType
 from card_data import CardData
 from human_player import HumanPlayer
 import config
 from player import Player
-from util import DiceEvents, Pos, MouseClick, ClickFilter, AMBUSH_MAX_RESOURCES, MILLS_EFFECTS
-from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable, Building
+from util import DiceEvents, Pos, MouseClick, ClickFilter, MILLS_EFFECTS
+from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable, Building, Buildable
 
 Pile = List[Playable]
 
@@ -138,7 +138,7 @@ class Game:
 
     def event_ambush(self) -> None:
         for player in [self.player1, self.player2]:
-            if player.get_unprotected_resources_cnt() > AMBUSH_MAX_RESOURCES:
+            if player.get_unprotected_resources_cnt() > config.AMBUSH_MAX_RESOURCES:
                 player.lose_ambush_resources()
 
     def handle_dice_events(self, event: DiceEvent):
@@ -209,34 +209,36 @@ class Game:
     def throw_yield_dice(self) -> int:
         return random.randint(1, 6)
 
-    def get_land_neighbors(self, card: Landscape) -> List[Playable]:
-        pos = card.player.landscapeCards[card]
+    def get_land_neighbors(self, card: Landscape) -> List[Buildable]:
+        assert card.pos is not None and card.player is not None
         posLst: List[Pos] = []
-        if pos.x > 0:
-            posLst.append(pos.left())
-            posLst.append(pos.left().up() if pos.y > card.player.midPos else pos.left().down())
-        if pos.x < self.mainBoard.size.x - 1:
-            posLst.append(pos.right())
-            posLst.append(pos.right().up() if pos.y > card.player.midPos else pos.right().down())
+        if card.pos.x > 0:
+            posLst.append(card.pos.left())
+            posLst.append(card.pos.left().up() if card.pos.y > card.player.midPos else card.pos.left().down())
+        if card.pos.x < self.mainBoard.size.x - 1:
+            posLst.append(card.pos.right())
+            posLst.append(card.pos.right().up() if card.pos.y > card.player.midPos else card.pos.right().down())
 
-        retLst: List[Playable] = []
+        retLst: List[Buildable] = []
         for pos in posLst:
-            card = self.mainBoard.get_square(pos)
-            if isinstance(card, Playable):
-                retLst.append(card)
+            square = self.mainBoard.get_square(pos)
+            if isinstance(square, Buildable):
+                retLst.append(square)
         return retLst
 
     def get_land_yield(self, card: Landscape) -> int:
         buildingNeeded = MILLS_EFFECTS[card.resource]
+        # TODO this double isinstance is ugly - improve it somehow
         buildingsAvailable = filter (lambda b: isinstance(b, Building), self.get_land_neighbors(card))
-        return 2 if buildingNeeded in map(lambda b: b.buildingType, buildingsAvailable) else 1
+        return 2 if buildingNeeded in map(lambda b: isinstance(b, Building) and b.buildingType, buildingsAvailable) else 1
 
     def land_yield(self, number: int):
         for player in [self.player1, self.player2]:
-            for land, pos in player.landscapeCards.items():
+            for land in player.landscapeCards:
                 if land.diceNumber == number and land.resourcesHeld < config.MAX_LAND_RESOURCES:
                     land.resourcesHeld = min(land.resourcesHeld + self.get_land_yield(land), config.MAX_LAND_RESOURCES)
-                    self.mainBoard.refresh_square(pos)
+                    assert land.pos is not None
+                    self.mainBoard.refresh_square(land.pos)
 
     def throw_event_dice(self) -> DiceEvent:
         return DiceEvents[random.randint(1, 6)]

@@ -2,7 +2,7 @@ from __future__ import annotations
 import copy
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Dict, Optional, Type
-from card import Action, Buildable, Settlement, Card
+from card import Action, Buildable, Card
 from config import BROWSE_DISCOUNT_BUILDINGS, CARDS_INCREASING_HAND_CNT, STOLEN_AMBUSH_RESOURCES
 from enums import Resource
 from util import Pos, Cost

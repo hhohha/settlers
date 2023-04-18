@@ -1,9 +1,9 @@
 from __future__ import annotations
 from typing import Optional, TYPE_CHECKING, Type
-from enums import Button, DiceEvent, Resource
+from enums import Button, DiceEvent
 from player import Player
 from util import Pos, MouseClick, ClickFilter, RESOURCE_LIST, Cost
-from card import Landscape, Playable, Path, Card, Town, Village, Settlement, Action, Building
+from card import Landscape, Playable, Path, Town, Village, Settlement, Action, SettlementSlot
 
 if TYPE_CHECKING:
     from game import Game
@@ -103,6 +103,7 @@ class HumanPlayer(Player):
             if opponentLandSelected is not None and square.player is self and square.resourcesHeld < 3 and square.resource == opponentLandSelected.resource:
                 opponentLandSelected.resourcesHeld -= 1
                 square.resourcesHeld += 1
+                assert opponentLandSelected.pos is not None
                 self.game.mainBoard.refresh_square(opponentLandSelected.pos)
                 self.game.mainBoard.refresh_square(click.pos)
                 return
@@ -160,7 +161,7 @@ class HumanPlayer(Player):
             click = self.game.get_filtered_click(
                 [ClickFilter(board=self.game.mainBoard, cardNames=RESOURCE_LIST, player=self)]
             )
-            card: Card = click.board.get_square(click.pos)
+            card = click.board.get_square(click.pos)
             if not isinstance(card, Landscape):
                 continue
 
@@ -172,6 +173,8 @@ class HumanPlayer(Player):
         while True:
             click = self.game.get_filtered_click()
             card = click.board.get_square(click.pos)
+            if card is None:
+                continue
 
             if self.button_clicked(click) == Button.CANCEL.value:
                 return None
@@ -180,13 +183,13 @@ class HumanPlayer(Player):
                 if card.name == 'empty' and click.pos.y == self.midPos.y and self.is_next_to(click.pos, Path):
                     return click.pos
             elif infraType == Town:
-                if card.name == 'village' and card.player is self:
+                if isinstance(card, Village) and card.player is self:
                     return click.pos
             elif infraType == Path:
                 if card.name == 'empty' and click.pos.y == self.midPos.y and self.is_next_to(click.pos, Settlement):
                     return click.pos
             elif infraType == Playable:
-                if card.name == 'empty' and hasattr(card, 'settlement') and card.settlement.player is self:
+                if isinstance(card, SettlementSlot) and card.settlement is not None and card.settlement.player is self:
                     if townOnly and isinstance(card.settlement, Village):
                         print('this card needs to be placed in a town')
                         continue
@@ -223,6 +226,8 @@ class HumanPlayer(Player):
             self.game.display.print_msg('do something')
             click = self.game.get_filtered_click()
             card = click.board.get_square(click.pos)
+            if card is None:
+                continue
 
             if self.button_clicked(click) == Button.END_TURN.value:
                 return

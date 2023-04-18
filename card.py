@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from abc import ABC
 from typing import Optional, List, TYPE_CHECKING
 from enums import Resource, BuildingType, ActionCardType, EventCardType
