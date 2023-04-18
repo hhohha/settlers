@@ -82,7 +82,6 @@ class HumanPlayer(Player):
     def grab_any_resource(self) -> None:
         self.game.display.print_msg('grab a resource')
         opponentLandSelected: Optional[Landscape] = None
-        selectedPos: Optional[Pos] = None
 
         while True:
             click = self.game.display.get_mouse_click(
@@ -100,12 +99,11 @@ class HumanPlayer(Player):
 
             if square.player is self.opponent and square.resourcesHeld >= 1:
                 opponentLandSelected = square
-                selectedPos = click.pos
 
             if opponentLandSelected is not None and square.player is self and square.resourcesHeld < 3 and square.resource == opponentLandSelected.resource:
                 opponentLandSelected.resourcesHeld -= 1
                 square.resourcesHeld += 1
-                self.game.mainBoard.refresh_square(selectedPos)
+                self.game.mainBoard.refresh_square(opponentLandSelected.pos)
                 self.game.mainBoard.refresh_square(click.pos)
                 return
 
@@ -156,7 +154,7 @@ class HumanPlayer(Player):
 
         self.game.land_yield(diceNumber)
 
-    def select_card_to_pay(self, cost: Optional[Cost]=None) -> Card:
+    def select_card_to_pay(self, cost: Optional[Cost]=None) -> Landscape:
         self.game.display.print_msg('select card to pay')
         while True:
             click = self.game.get_filtered_click(

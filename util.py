@@ -7,7 +7,7 @@ from enums import DiceEvent, Resource, BuildingType
 if TYPE_CHECKING:
     from player import Player
     from board import Board
-    from card import Playable, Card
+    from card import Playable, Card, Settlement, Path, Landscape
 
     Pile = List[Playable]
 
@@ -40,6 +40,7 @@ class ClickFilter:
         if self.cardType is not None and not isinstance(square, self.cardType):
             return False
 
+        assert isinstance(square, Card)
         if self.cardNamesNeg:
             if self.cardNames is not None and square.name in self.cardNames:
                 return False
@@ -47,8 +48,12 @@ class ClickFilter:
             if self.cardNames is not None and square.name not in self.cardNames:
                 return False
 
-        if self.player is not None and self.player is not square.player:
-            return False
+        if self.player is not None:
+            if not hasattr(square, 'player'):
+                return False
+            assert isinstance(square, Settlement | Path | Playable | Landscape)
+            if self.player is not square.player:
+                return False
 
         if self.check is not None and not self.check():
             return False

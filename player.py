@@ -2,7 +2,7 @@ from __future__ import annotations
 import copy
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Dict, Optional, Type
-from card import Action
+from card import Action, Buildable, Settlement, Card
 from config import BROWSE_DISCOUNT_BUILDINGS, CARDS_INCREASING_HAND_CNT, STOLEN_AMBUSH_RESOURCES
 from enums import Resource
 from util import Pos, Cost
@@ -121,6 +121,8 @@ class Player(ABC):
             self.play_action_card(card)
             return
 
+        assert isinstance(card, Buildable)
+
         if not self.can_cover_cost(card.cost):
             print('you cannot afford to play this')
             return
@@ -145,8 +147,12 @@ class Player(ABC):
         self.refresh_hand_board()
         self.pay(card.cost)
 
+    def apply_card_effect(self) -> None:
+            # TODO - implement this
+        pass
+
     def get_unprotected_resources_cnt(self) -> int:
-        return sum(map(lambda l: 0 if l.protectedByWarehouse() else l.resourcesHeld, self.landscapeCards))
+        return sum(map(lambda l: 0 if l.protectedByWarehouse else l.resourcesHeld, self.landscapeCards))
 
     def lose_ambush_resources(self):
         for land in self.landscapeCards:
@@ -154,7 +160,7 @@ class Player(ABC):
                 land.resourcesHeld = 0
                 self.game.mainBoard.refresh_square(land.pos)
 
-    def build_infrastructure(self, infraType: Type[Village | Town | Path]) -> None:
+    def build_infrastructure(self, infraType: Type[Town | Village | Path]) -> None:
         if self.game.infraCardsLeft[infraType] < 1:
             print(f'no more cards {infraType} left')
             return
@@ -166,10 +172,11 @@ class Player(ABC):
             return
 
         self.game.infraCardsLeft[infraType] -= 1
+        newCard: Card
         if infraType is Path:
-            newCard = Path()
+            newCard = Path(pos, self)
         else:
-            newCard = infraType(self.game.mainBoard, pos, self)
+            newCard = infraType(pos, self)
 
         self.game.mainBoard.set_square(pos, newCard)
         self.pay(infraType.cost)
@@ -177,19 +184,30 @@ class Player(ABC):
             self.place_new_land(pos)
 
 
+    def pay_specific(self, cost: Cost) -> None:
+        costToPay = copy.copy(cost)
+        while not costToPay.is_zero():
+            land: Landscape = self.select_card_to_pay(costToPay)
+            assert land.pos is not None
+            costToPay.take(land.resource)
+            land.resourcesHeld -= 1
+            self.game.mainBoard.refresh_square(land.pos)
+
+    def pay_any(self, cost: int) -> None:
+        while cost > 0:
+            land: Landscape = self.select_card_to_pay(None)
+            assert land.pos is not None
+            cost -= 1
+            land.resourcesHeld -= 1
+            self.game.mainBoard.refresh_square(land.pos)
+
     def pay(self, cost: Cost | int) -> None:
         self.game.display.print_msg('now you need to pay')
-        costToPay = copy.copy(cost)
+        if isinstance(cost, Cost):
+            return self.pay_specific(cost)
+        else:
+            return self.pay_any(cost)
 
-        while not (costToPay.is_zero() if isinstance(cost, Cost) else costToPay == 0):
-            card: Landscape = self.select_card_to_pay(None if isinstance(cost, int) else costToPay)
-
-            if isinstance(cost, Cost):
-                costToPay.take(card.resource)
-            else:
-                costToPay -= 1
-            card.resourcesHeld -= 1
-            self.game.mainBoard.refresh_square(card.pos)
 
     def refill_hand(self, canSwap: bool) -> None:
         maxCardsInHand = self.get_hand_cards_cnt()
@@ -216,6 +234,10 @@ class Player(ABC):
                 self.refill_hand(False)
 
     @abstractmethod
+    def get_card_from_choice(self, pile: Pile) -> None:
+        pass
+
+    @abstractmethod
     def select_pile(self) -> Pile:
         pass
 
@@ -232,7 +254,7 @@ class Player(ABC):
         pass
 
     @abstractmethod
-    def select_card_to_pay(self, resource: Optional[Resource]) -> Landscape:
+    def select_card_to_pay(self, resource: Optional[Cost]) -> Landscape:
         pass
 
     @abstractmethod
