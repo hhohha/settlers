@@ -98,3 +98,6 @@ class ComputerPlayer(Player):
 
     def select_card_to_throw_away(self) -> int:
         return 0
+
+    def get_card_from_choice(self, pile: Pile) -> None:
+        pass

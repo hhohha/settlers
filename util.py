@@ -3,62 +3,21 @@ from typing import Union, Tuple, TYPE_CHECKING, List, Optional, Type, Callable, 
 from dataclasses import dataclass
 from config import RESOURCE_LIST
 from enums import DiceEvent, Resource, BuildingType
-
 if TYPE_CHECKING:
-    from player import Player
     from board import Board
-    from card import Playable, Card, Settlement, Path, Landscape
+    from card import Playable
 
     Pile = List[Playable]
 
 
-MILLS_EFFECTS: Dict[Resource, BuildingType] = {
+MILLS_EFFECTS: Dict[Resource, Optional[BuildingType]] = {
     Resource.GRAIN: BuildingType.MILL,
     Resource.BRICK: BuildingType.BRICKYARD,
     Resource.ROCK: BuildingType.STEEL_MILL,
     Resource.SHEEP: BuildingType.SPINNING_MILL,
-    Resource.WOOD: BuildingType.SAWMILL
+    Resource.WOOD: BuildingType.SAWMILL,
+    Resource.GOLD: None
 }
-
-@dataclass
-class ClickFilter:
-    board: Optional[Board] = None
-    cardType: Optional[Type] = None
-    cardNames: Optional[List[str]] = None
-    cardNamesNeg: bool = False
-    player: Optional[Player] = None
-    check: Optional[Callable] = None
-
-    def accepts(self, click: MouseClick) -> bool:
-        if self.board is not None and self.board is not click.board:
-            return False
-
-        square: Optional[Card] = click.board.get_square(click.pos)
-        if square is None:
-            return False
-
-        if self.cardType is not None and not isinstance(square, self.cardType):
-            return False
-
-        assert isinstance(square, Card)
-        if self.cardNamesNeg:
-            if self.cardNames is not None and square.name in self.cardNames:
-                return False
-        else:
-            if self.cardNames is not None and square.name not in self.cardNames:
-                return False
-
-        if self.player is not None:
-            if not hasattr(square, 'player'):
-                return False
-            assert isinstance(square, Settlement | Path | Playable | Landscape)
-            if self.player is not square.player:
-                return False
-
-        if self.check is not None and not self.check():
-            return False
-
-        return True
 
 @dataclass(frozen=False)
 class Cost:
@@ -89,25 +48,25 @@ class Pos:
     x: int
     y: int
 
-    def __add__(self, other: Union['Pos', int]) -> 'Pos':
+    def __add__(self, other: Union[Pos, int]) -> Pos:
         if isinstance(other, Pos):
             return Pos(self.x + other.x, self.y + other.y)
         else:
             return Pos(self.x + other, self.y + other)
 
-    def __sub__(self, other: Union['Pos', int]) -> 'Pos':
+    def __sub__(self, other: Union[Pos, int]) -> Pos:
         if isinstance(other, Pos):
             return Pos(self.x - other.x, self.y - other.y)
         else:
             return Pos(self.x - other, self.y - other)
 
-    def __mul__(self, other: Union['Pos', int]) -> 'Pos':
+    def __mul__(self, other: Union[Pos, int]) -> Pos:
         if isinstance(other, Pos):
             return Pos(self.x * other.x, self.y * other.y)
         else:
             return Pos(self.x * other, self.y * other)
 
-    def __floordiv__(self, other: Union['Pos', int]) -> 'Pos':
+    def __floordiv__(self, other: Union[Pos, int]) -> Pos:
         if isinstance(other, Pos):
             return Pos(self.x // other.x, self.y // other.y)
         else:
@@ -122,16 +81,16 @@ class Pos:
     def __le__(self, other):
         return self.x <= other.x and self.y <= other.y
 
-    def up(self, n: int = 1) -> 'Pos':
+    def up(self, n: int = 1) -> Pos:
         return Pos(self.x, self.y - n)
 
-    def down(self, n: int = 1) -> 'Pos':
+    def down(self, n: int = 1) -> Pos:
         return Pos(self.x, self.y + n)
 
-    def right(self, n: int = 1) -> 'Pos':
+    def right(self, n: int = 1) -> Pos:
         return Pos(self.x + n, self.y)
 
-    def left(self, n: int = 1) -> 'Pos':
+    def left(self, n: int = 1) -> Pos:
         return Pos(self.x - n, self.y)
 
     def tuple(self) -> Tuple[int, int]:

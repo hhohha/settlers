@@ -226,7 +226,8 @@ class CardData:
         {'name': 'back_path'},
         {'name': 'back_village'},
         {'name': 'back'},
-        {'name': 'empty'}
+        {'name': 'empty'},
+        {'name': 'highlighted'}
     ]
 
     CARD_NAMES: Set[str] = {card['name'] for card in KNIGHT_LIST}

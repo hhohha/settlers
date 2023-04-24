@@ -1,6 +1,7 @@
 import random
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from board import Board
+from click_filter import ClickFilter
 from computer_player import ComputerPlayer
 from display_handler import DisplayHandler
 from enums import DiceEvent, EventCardType
@@ -8,8 +9,8 @@ from card_data import CardData
 from human_player import HumanPlayer
 import config
 from player import Player
-from util import DiceEvents, Pos, MouseClick, ClickFilter, MILLS_EFFECTS
-from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable, Building, Buildable
+from util import DiceEvents, Pos, MouseClick, MILLS_EFFECTS
+from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable, Building, Buildable, SettlementSlot
 
 Pile = List[Playable]
 
@@ -61,7 +62,7 @@ class Game:
         self.bigCard.fill_board(MetaCard('empty'))
         self.buttons.fill_board(MetaCard('empty'))
 
-    def get_filtered_click(self, clickFilters: List[ClickFilter]=[]) -> MouseClick:
+    def get_filtered_click(self, clickFilters: Tuple[ClickFilter, ...]=()) -> MouseClick:
         while True:
             click = self.display.get_mouse_click()
             if click.board.get_square(click.pos) is None:
@@ -77,9 +78,16 @@ class Game:
             self.mainBoard.set_square(pos, MetaCard('empty'))
 
         for player in [self.player1, self.player2]:
-            self.mainBoard.set_square(player.midPos, Path())
-            self.mainBoard.set_square(player.midPos.right(), Village(self.mainBoard, player.midPos.right(), player))
-            self.mainBoard.set_square(player.midPos.left(), Village(self.mainBoard, player.midPos.left(), player))
+            self.mainBoard.set_square(player.midPos, Path(player.midPos, player))
+
+            FIX IT HERE
+            self.mainBoard.set_square(player.midPos.right(), Village(player.midPos.right(), player))
+            self.mainBoard.set_square(player.midPos.right().up(), SettlementSlot(player.midPos.right().up()))
+            self.mainBoard.set_square(player.midPos.right().down(), SettlementSlot(player.midPos.right().down()))
+
+            self.mainBoard.set_square(player.midPos.left(), Village(player.midPos.left(), player))
+            self.mainBoard.set_square(player.midPos.left().up(), SettlementSlot(player.midPos.left().up()))
+            self.mainBoard.set_square(player.midPos.left().down(), SettlementSlot(player.midPos.left().down()))
 
         self.mainBoard.set_square(Pos(0, 5), MetaCard('back_event'))
         self.mainBoard.set_square(Pos(1, 5), MetaCard('back_land'))
@@ -119,18 +127,26 @@ class Game:
         player2Strength = self.player1.get_tournament_strength()
 
         if player1Strength > player2Strength:
+            print('tournament winner is player1')
             self.player1.pick_any_resource()
         elif player1Strength < player2Strength:
+            print('tournament winner is player2')
             self.player2.pick_any_resource()
+        else:
+            print('tournament has no winner')
 
     def event_trade_profit(self) -> None:
         player1Profit = self.player1.get_trade_strength()
         player2Profit = self.player1.get_trade_strength()
 
         if player1Profit > player2Profit:
+            print('trade profit for player 1')
             self.player1.grab_any_resource()
         elif player1Profit < player2Profit:
+            print('trade profit for player 2')
             self.player2.grab_any_resource()
+        else:
+            print('no trade profit')
 
     def event_good_harvest(self) -> None:
         self.player1.pick_any_resource()
@@ -181,19 +197,19 @@ class Game:
     def card_event(self):
         event: Event = self.eventCards.pop(0)
         self.eventCards.append(event)
-        if event == EventCardType.BUILDER:
+        if event.eventType == EventCardType.BUILDER:
             self.card_event_builder()
-        elif event == EventCardType.CIVIL_WAR:
+        elif event.eventType == EventCardType.CIVIL_WAR:
             self.card_event_civil_war()
-        elif event == EventCardType.RICH_YEAR:
+        elif event.eventType == EventCardType.RICH_YEAR:
             self.card_event_rich_year()
-        elif event == EventCardType.ADVANCE:
+        elif event.eventType == EventCardType.ADVANCE:
             self.card_event_advance()
-        elif event == EventCardType.NEW_YEAR:
+        elif event.eventType == EventCardType.NEW_YEAR:
             self.card_event_new_year()
-        elif event == EventCardType.CONFLICT:
+        elif event.eventType == EventCardType.CONFLICT:
             self.card_event_conflict()
-        elif event == EventCardType.PLAQUE:
+        elif event.eventType == EventCardType.PLAQUE:
             self.card_event_plaque()
         else:
             raise ValueError(f'unknown card event: {event}')
@@ -214,10 +230,10 @@ class Game:
         posLst: List[Pos] = []
         if card.pos.x > 0:
             posLst.append(card.pos.left())
-            posLst.append(card.pos.left().up() if card.pos.y > card.player.midPos else card.pos.left().down())
+            posLst.append(card.pos.left().up() if card.pos.y > card.player.midPos.y else card.pos.left().down())
         if card.pos.x < self.mainBoard.size.x - 1:
             posLst.append(card.pos.right())
-            posLst.append(card.pos.right().up() if card.pos.y > card.player.midPos else card.pos.right().down())
+            posLst.append(card.pos.right().up() if card.pos.y > card.player.midPos.y else card.pos.right().down())
 
         retLst: List[Buildable] = []
         for pos in posLst:

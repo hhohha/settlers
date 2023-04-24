@@ -73,10 +73,10 @@ class DiceEvent(Enum):
     CARD_EVENT = 4
 
 class EventCardType(Enum):
-    BUILDER = 0
-    CIVIL_WAR = 1
-    RICH_YEAR = 2
-    ADVANCE = 3
-    NEW_YEAR = 4
-    CONFLICT = 5
-    PLAQUE = 6
+    BUILDER = 'builder'
+    CIVIL_WAR = 'civil_war'
+    RICH_YEAR = 'rich_year'
+    ADVANCE = 'advance'
+    NEW_YEAR = 'new_year'
+    CONFLICT = 'conflict'
+    PLAQUE = 'plaque'

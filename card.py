@@ -19,8 +19,8 @@ class MetaCard(Card):
         super().__init__(name)
 
 class SettlementSlot(Card):
-    def __init__(self, name: str, pos: Pos):
-        super().__init__(name)
+    def __init__(self, pos: Pos):
+        super().__init__('highlighted')
         self.pos = pos
         self.settlement: Optional[Settlement] = None
 

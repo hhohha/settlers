@@ -2,13 +2,13 @@ from __future__ import annotations
 import copy
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Dict, Optional, Type
-from card import Action, Buildable, Card
+from card import Action, Buildable, Card, Building, Playable, SettlementSlot
 from config import BROWSE_DISCOUNT_BUILDINGS, CARDS_INCREASING_HAND_CNT, STOLEN_AMBUSH_RESOURCES
 from enums import Resource
 from util import Pos, Cost
 
 if TYPE_CHECKING:
-    from card import Playable, Landscape, Knight, Fleet, Building, Village, Town, Path
+    from card import Landscape, Knight, Fleet, Village, Town, Path
     from game import Game, Pile
     from board import Board
 
@@ -128,7 +128,7 @@ class Player(ABC):
             return
 
         townOnly: bool = card.townOnly if isinstance(card, Building) else False
-        pos: Optional[Pos] = self.get_new_card_position(Playable, townOnly)
+        pos: Optional[Pos] = self.get_new_card_position(Buildable, townOnly)
         if pos is None:
             return
 
@@ -166,6 +166,7 @@ class Player(ABC):
             return
         if not self.can_cover_cost(infraType.cost):
             print(f'you cannot afford this: {infraType}')
+            return
 
         pos: Optional[Pos] = self.get_new_card_position(infraType)
         if pos is None:
@@ -178,10 +179,18 @@ class Player(ABC):
         else:
             newCard = infraType(pos, self)
 
-        self.game.mainBoard.set_square(pos, newCard)
+        FIX IT HERE
         self.pay(infraType.cost)
-        if infraType is Village:
-            self.place_new_land(pos)
+        if infraType is Village or infraType is Town:
+            ss = SettlementSlot(pos.up())
+            ss.settlement =
+            self.game.mainBoard.set_square(pos.up(), SettlementSlot(pos.up()))
+            self.game.mainBoard.set_square(pos.down(), SettlementSlot(pos.down()))
+            if infraType is Village:
+                self.place_new_land(pos)
+            else:
+                self.game.mainBoard.set_square(pos.up(2), SettlementSlot(pos.up(2)))
+                self.game.mainBoard.set_square(pos.down(2), SettlementSlot(pos.down(2)))
 
 
     def pay_specific(self, cost: Cost) -> None:
@@ -209,6 +218,7 @@ class Player(ABC):
             return self.pay_any(cost)
 
 
+    #TODO - refactor duplicated code
     def refill_hand(self, canSwap: bool) -> None:
         maxCardsInHand = self.get_hand_cards_cnt()
         if len(self.cardsInHand) < maxCardsInHand:
@@ -229,9 +239,17 @@ class Player(ABC):
                     self.refresh_hand_board()
             if canSwap and self.swap_one_card():
                 idx = self.select_card_to_throw_away()
-                self.cardsInHand.pop(idx)
+                removedCard = self.cardsInHand.pop(idx)
                 self.refresh_hand_board()
-                self.refill_hand(False)
+                pile = self.select_pile()
+                payToBrowse = 1 if self.has_browse_discount() else 2
+                if self.can_cover_cost(payToBrowse) and self.decide_browse_pile():
+                    self.pay(payToBrowse)
+                    self.get_card_from_choice(pile)
+                else:
+                    self.cardsInHand.append(pile.pop())
+                    self.refresh_hand_board()
+                pile.append(removedCard)
 
     @abstractmethod
     def get_card_from_choice(self, pile: Pile) -> None:

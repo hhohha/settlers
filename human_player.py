@@ -1,9 +1,11 @@
 from __future__ import annotations
 from typing import Optional, TYPE_CHECKING, Type
+
+from click_filter import ClickFilter
 from enums import Button, DiceEvent
 from player import Player
-from util import Pos, MouseClick, ClickFilter, RESOURCE_LIST, Cost
-from card import Landscape, Playable, Path, Town, Village, Settlement, Action, SettlementSlot
+from util import Pos, MouseClick, RESOURCE_LIST, Cost
+from card import Landscape, Playable, Path, Town, Village, Settlement, Action, SettlementSlot, Buildable
 
 if TYPE_CHECKING:
     from game import Game
@@ -46,7 +48,9 @@ class HumanPlayer(Player):
 
     def select_pile(self) -> Pile:
         self.game.display.print_msg('select a pile')
-        board, pos = self.game.get_filtered_click([ClickFilter(board=self.game.mainBoard, cardNames=['back'])]).tuple()
+        board, pos = self.game.get_filtered_click(
+            (ClickFilter(board=self.game.mainBoard, cardNames=['back']),)
+        ).tuple()
         pileIdx = pos.x - board.size.x + len(self.game.cardPiles)
         return self.game.cardPiles[pileIdx]
 
@@ -113,8 +117,8 @@ class HumanPlayer(Player):
         self.game.display.print_msg('pick a resource')
         while True:
             click = self.game.get_filtered_click(
-                [ClickFilter(board=self.game.mainBoard, cardNames=RESOURCE_LIST, player=self),
-                ClickFilter(board=self.game.buttons)]
+                (ClickFilter(board=self.game.mainBoard, cardNames=RESOURCE_LIST, player=self),
+                ClickFilter(board=self.game.buttons))
             )
 
             if self.button_clicked(click) == Button.CANCEL.value:
@@ -159,7 +163,7 @@ class HumanPlayer(Player):
         self.game.display.print_msg('select card to pay')
         while True:
             click = self.game.get_filtered_click(
-                [ClickFilter(board=self.game.mainBoard, cardNames=RESOURCE_LIST, player=self)]
+                (ClickFilter(board=self.game.mainBoard, cardNames=RESOURCE_LIST, player=self),)
             )
             card = click.board.get_square(click.pos)
             if not isinstance(card, Landscape):
@@ -168,7 +172,7 @@ class HumanPlayer(Player):
             if card.resourcesHeld > 0 and (cost is None or cost.get(card.resource) > 0):
                 return card
 
-    def get_new_card_position(self, infraType: Type[Village | Path | Town | Playable], townOnly=False) -> Optional[Pos]:
+    def get_new_card_position(self, infraType: Type[Village | Path | Town | Buildable], townOnly=False) -> Optional[Pos]:
         self.game.display.print_msg('choose card location')
         while True:
             click = self.game.get_filtered_click()
@@ -188,11 +192,21 @@ class HumanPlayer(Player):
             elif infraType == Path:
                 if card.name == 'empty' and click.pos.y == self.midPos.y and self.is_next_to(click.pos, Settlement):
                     return click.pos
-            elif infraType == Playable:
+            elif infraType == Buildable:
+                try:
+                    print(f'trying to place a buildable card to pos {click.pos}')
+                    print(f'isinstance(card, SettlementSlot): {isinstance(card, SettlementSlot)}')
+                    print(f'card.settlement is not None: {card.settlement is not None}')
+                    print(f'card.settlement.player is self: {card.settlement.player is self}')
+                    print(f'townOnly and isinstance(card.settlement, Village): {townOnly and isinstance(card.settlement, Village)}')
+                except Exception:
+                    print('whoops')
+
                 if isinstance(card, SettlementSlot) and card.settlement is not None and card.settlement.player is self:
                     if townOnly and isinstance(card.settlement, Village):
                         print('this card needs to be placed in a town')
                         continue
+                    print(f'looks good, returning valid position: {click.pos}')
                     return click.pos
             else:
                 raise ValueError(f'unknown infra type: {infraType}')
@@ -210,7 +224,7 @@ class HumanPlayer(Player):
 
     def select_card_to_throw_away(self) -> int:
         self.game.display.print_msg('select card to throw away')
-        click = self.game.get_filtered_click([ClickFilter(board=self.handBoard)])
+        click = self.game.get_filtered_click((ClickFilter(board=self.handBoard),))
         return click.board.to_int(click.pos)
 
     def ok_or_cancel(self) -> bool:
