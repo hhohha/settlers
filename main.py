@@ -4,6 +4,9 @@ from game import Game
 from config import *
 from util import Pos
 
+# BUGS
+#  - grab does not subtract
+#  - mills don't work in the second position
 
 def main():
     random.seed(time.time())

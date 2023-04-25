@@ -88,9 +88,9 @@ class HumanPlayer(Player):
         opponentLandSelected: Optional[Landscape] = None
 
         while True:
-            click = self.game.display.get_mouse_click(
+            click = self.game.get_filtered_click((
                 ClickFilter(board=self.game.mainBoard, cardNames=RESOURCE_LIST),
-                ClickFilter(board=self.game.buttons)
+                ClickFilter(board=self.game.buttons))
             )
 
             if self.button_clicked(click) == Button.OK.value:
@@ -193,15 +193,6 @@ class HumanPlayer(Player):
                 if card.name == 'empty' and click.pos.y == self.midPos.y and self.is_next_to(click.pos, Settlement):
                     return click.pos
             elif infraType == Buildable:
-                try:
-                    print(f'trying to place a buildable card to pos {click.pos}')
-                    print(f'isinstance(card, SettlementSlot): {isinstance(card, SettlementSlot)}')
-                    print(f'card.settlement is not None: {card.settlement is not None}')
-                    print(f'card.settlement.player is self: {card.settlement.player is self}')
-                    print(f'townOnly and isinstance(card.settlement, Village): {townOnly and isinstance(card.settlement, Village)}')
-                except Exception:
-                    print('whoops')
-
                 if isinstance(card, SettlementSlot) and card.settlement is not None and card.settlement.player is self:
                     if townOnly and isinstance(card.settlement, Village):
                         print('this card needs to be placed in a town')

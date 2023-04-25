@@ -10,13 +10,12 @@ if TYPE_CHECKING:
     Pile = List[Playable]
 
 
-MILLS_EFFECTS: Dict[Resource, Optional[BuildingType]] = {
+MILLS_EFFECTS: Dict[Resource, BuildingType] = {
     Resource.GRAIN: BuildingType.MILL,
     Resource.BRICK: BuildingType.BRICKYARD,
     Resource.ROCK: BuildingType.STEEL_MILL,
     Resource.SHEEP: BuildingType.SPINNING_MILL,
-    Resource.WOOD: BuildingType.SAWMILL,
-    Resource.GOLD: None
+    Resource.WOOD: BuildingType.SAWMILL
 }
 
 @dataclass(frozen=False)

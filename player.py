@@ -2,13 +2,13 @@ from __future__ import annotations
 import copy
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Dict, Optional, Type
-from card import Action, Buildable, Card, Building, Playable, SettlementSlot
+from card import Action, Buildable, Building, Playable, SettlementSlot, Village, Town, Path, Knight, Fleet
 from config import BROWSE_DISCOUNT_BUILDINGS, CARDS_INCREASING_HAND_CNT, STOLEN_AMBUSH_RESOURCES
 from enums import Resource
 from util import Pos, Cost
 
 if TYPE_CHECKING:
-    from card import Landscape, Knight, Fleet, Village, Town, Path
+    from card import Landscape
     from game import Game, Pile
     from board import Board
 
@@ -173,24 +173,42 @@ class Player(ABC):
             return
 
         self.game.infraCardsLeft[infraType] -= 1
-        newCard: Card
-        if infraType is Path:
-            newCard = Path(pos, self)
-        else:
-            newCard = infraType(pos, self)
-
-        FIX IT HERE
         self.pay(infraType.cost)
-        if infraType is Village or infraType is Town:
-            ss = SettlementSlot(pos.up())
-            ss.settlement =
-            self.game.mainBoard.set_square(pos.up(), SettlementSlot(pos.up()))
-            self.game.mainBoard.set_square(pos.down(), SettlementSlot(pos.down()))
-            if infraType is Village:
-                self.place_new_land(pos)
-            else:
-                self.game.mainBoard.set_square(pos.up(2), SettlementSlot(pos.up(2)))
-                self.game.mainBoard.set_square(pos.down(2), SettlementSlot(pos.down(2)))
+
+        if infraType is Village:
+            self.place_village_to_board(pos)
+            self.place_new_land(pos)
+        elif infraType is Town:
+            self.place_town_to_board(pos)
+        elif infraType is Path:
+            self.game.mainBoard.set_square(pos, Path(pos, self))
+        else:
+            assert False, f'build infrastructure got bad infratype: {infraType}'
+
+    def place_village_to_board(self, pos: Pos) -> None:
+        newVillage = Village(pos, self)
+        self.game.mainBoard.set_square(pos, newVillage)
+        for p in [pos.up(), pos.down()]:
+            slot = SettlementSlot(p)
+            self.game.mainBoard.set_square(p, slot)
+            slot.settlement = newVillage
+            newVillage.slots.append(slot)
+
+    def place_town_to_board(self, pos: Pos) -> None:
+        newTown = Town(pos, self)
+        self.game.mainBoard.set_square(pos, newTown)
+
+        for p in [pos.up(), pos.down()]:
+            slot = self.game.mainBoard.get_square(p)
+            assert isinstance(slot, SettlementSlot) or isinstance(slot, Buildable)
+            newTown.slots.append(slot)
+            slot.settlement = newTown
+
+        for p in [pos.up(2), pos.down(2)]:
+            slot = SettlementSlot(p)
+            self.game.mainBoard.set_square(p, slot)
+            slot.settlement = newTown
+            newTown.slots.append(slot)
 
 
     def pay_specific(self, cost: Cost) -> None:
@@ -247,7 +265,7 @@ class Player(ABC):
                     self.pay(payToBrowse)
                     self.get_card_from_choice(pile)
                 else:
-                    self.cardsInHand.append(pile.pop())
+                    self.cardsInHand.append(pile.pop(0))
                     self.refresh_hand_board()
                 pile.append(removedCard)
 
@@ -268,7 +286,7 @@ class Player(ABC):
         pass
 
     @abstractmethod
-    def get_new_card_position(self, infraType: Type[Village | Path | Town | Playable], townOnly=False) -> Optional[Pos]:
+    def get_new_card_position(self, infraType: Type[Village | Path | Town | Buildable], townOnly=False) -> Optional[Pos]:
         pass
 
     @abstractmethod

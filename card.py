@@ -52,7 +52,7 @@ class Village(Settlement):
     def __init__(self, pos: Pos, player: Player):
         super().__init__('village', pos, player)
         self.cards: List[Buildable] = []
-        self.buildPos: List[Pos] = [pos.up(), pos.down()]
+        self.slots: List[Buildable | SettlementSlot] = []
 
     cost: Cost = Cost(wood=1, sheep=1, brick=1, grain=1)
 
@@ -60,7 +60,7 @@ class Town(Settlement):
     def __init__(self, pos: Pos, player: Player):
         super().__init__('town', pos, player)
         self.cards: List[Buildable] = []
-        self.buildPos: List[Pos] = [pos.up(), pos.down(), pos.up(2), pos.down(2)]
+        self.slots: List[Buildable | SettlementSlot] = []
 
     cost: Cost = Cost(rock=3, grain=2)
 
@@ -89,6 +89,7 @@ class Buildable(Playable, ABC):
 class Building(Buildable):
     def __init__(self, name: str, buildingType: BuildingType, cost: Cost, townOnly: bool, victoryPoints: int, tradePoints: int):
         super().__init__(name, cost)
+        self.settlement: Optional[Settlement] = None
         self.townOnly: bool = townOnly
         self.victoryPoints: int = victoryPoints
         self.tradePoints: int = tradePoints

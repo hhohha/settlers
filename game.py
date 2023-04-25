@@ -4,7 +4,7 @@ from board import Board
 from click_filter import ClickFilter
 from computer_player import ComputerPlayer
 from display_handler import DisplayHandler
-from enums import DiceEvent, EventCardType
+from enums import DiceEvent, EventCardType, Resource
 from card_data import CardData
 from human_player import HumanPlayer
 import config
@@ -79,15 +79,8 @@ class Game:
 
         for player in [self.player1, self.player2]:
             self.mainBoard.set_square(player.midPos, Path(player.midPos, player))
-
-            FIX IT HERE
-            self.mainBoard.set_square(player.midPos.right(), Village(player.midPos.right(), player))
-            self.mainBoard.set_square(player.midPos.right().up(), SettlementSlot(player.midPos.right().up()))
-            self.mainBoard.set_square(player.midPos.right().down(), SettlementSlot(player.midPos.right().down()))
-
-            self.mainBoard.set_square(player.midPos.left(), Village(player.midPos.left(), player))
-            self.mainBoard.set_square(player.midPos.left().up(), SettlementSlot(player.midPos.left().up()))
-            self.mainBoard.set_square(player.midPos.left().down(), SettlementSlot(player.midPos.left().down()))
+            for pos in [player.midPos.right(), player.midPos.left()]:
+                player.place_village_to_board(pos)
 
         self.mainBoard.set_square(Pos(0, 5), MetaCard('back_event'))
         self.mainBoard.set_square(Pos(1, 5), MetaCard('back_land'))
@@ -124,7 +117,10 @@ class Game:
 
     def event_tournament(self) -> None:
         player1Strength = self.player1.get_tournament_strength()
-        player2Strength = self.player1.get_tournament_strength()
+        player2Strength = self.player2.get_tournament_strength()
+
+        print(f'player 1 strength: {player1Strength}')
+        print(f'player 2 strength: {player2Strength}')
 
         if player1Strength > player2Strength:
             print('tournament winner is player1')
@@ -137,7 +133,10 @@ class Game:
 
     def event_trade_profit(self) -> None:
         player1Profit = self.player1.get_trade_strength()
-        player2Profit = self.player1.get_trade_strength()
+        player2Profit = self.player2.get_trade_strength()
+
+        print(f'player 1 strength: {player1Profit}')
+        print(f'player 2 strength: {player2Profit}')
 
         if player1Profit > player2Profit:
             print('trade profit for player 1')
@@ -242,7 +241,10 @@ class Game:
                 retLst.append(square)
         return retLst
 
+    # TODO - refactor
     def get_land_yield(self, card: Landscape) -> int:
+        if card.resource == Resource.GOLD:
+            return 1
         buildingNeeded = MILLS_EFFECTS[card.resource]
         # TODO this double isinstance is ugly - improve it somehow
         buildingsAvailable = filter (lambda b: isinstance(b, Building), self.get_land_neighbors(card))
@@ -266,11 +268,16 @@ class Game:
         for player in [self.player1, self.player2]:
             player.pick_starting_cards()
 
+        round = 1
+
         player: Player = self.player1
         while not self.is_victory():
+            print(f'\n========  round {round} ========')
             player.throw_dice()
             player.do_actions()
             player.refill_hand(True)
             player.opponent.refill_hand(False)
             player = player.opponent
+            round += 1
+
 
