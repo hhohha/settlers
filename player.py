@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 class Player(ABC):
     def __init__(self, game: Game, handBoard: Board, number: int, handBoardVisible: bool, midPos: Pos):
         self.game: Game = game
-        self.opponent: Optional[Player] = None
+        self.opponent: Player = self
         self.handBoard = handBoard
         self.number: int = number
         self.victoryPoints = 0
@@ -274,7 +274,7 @@ class Player(ABC):
         pass
 
     @abstractmethod
-    def select_pile(self) -> Pile:
+    def select_pile(self, unavailablePile: Optional[Pile]=None) -> Pile:
         pass
 
     @abstractmethod

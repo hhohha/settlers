@@ -4,9 +4,21 @@ from game import Game
 from config import *
 from util import Pos
 
+# TODOS
+#  - exchange own resources 3:1
+#  - use fleets
+#  - use mint
+#  - implement card events
+#  - implement action cards
+#  - implement protective cards
+#  - implement AI
+
 # BUGS
-#  - grab does not subtract
-#  - mills don't work in the second position
+#  - victory doesn't work
+
+# TEST CASES
+#  - builder - select pile collision
+#  - grabbing resource - is there something which can be grabbed?
 
 def main():
     random.seed(time.time())

@@ -16,20 +16,20 @@ class ComputerPlayer(Player):
         # TODO - move gold to the middle
         pass
 
-    def selectPile(self) -> Pile:
+    def select_pile(self, unavailablePile: Optional[Pile]=None) -> Pile:
         # TODO
         # always selects the pile with most cards, that is suitable for first select but needs to improve
         # for subsequent selections - at least pick those that haven't been picked (longest), or those we know/think
         # have card(s) we want
         resIdx, maxLen = 0, 0
         for idx, pile in enumerate(self.game.cardPiles):
-            if len(pile) > maxLen:
+            if len(pile) > maxLen and pile is not unavailablePile:
                 maxLen, resIdx = len(pile), idx
         return self.game.cardPiles[resIdx]
 
     def pick_starting_cards(self) -> None:
         # TODO - setup card priority
-        pile = self.selectPile()
+        pile = self.select_pile()
         while len(self.cardsInHand) < self.cardsInHandCnt:
             self.add_card(pile.pop())
         self.refresh_hand_board()
@@ -89,9 +89,6 @@ class ComputerPlayer(Player):
 
     def select_card_to_pay(self, resource: Optional[Cost]) -> Landscape:
         pass
-
-    def select_pile(self) -> Pile:
-        return self.game.cardPiles[0]
 
     def swap_one_card(self) -> bool:
         return False

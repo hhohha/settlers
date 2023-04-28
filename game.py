@@ -1,5 +1,5 @@
 import random
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Set
 from board import Board
 from click_filter import ClickFilter
 from computer_player import ComputerPlayer
@@ -9,7 +9,7 @@ from card_data import CardData
 from human_player import HumanPlayer
 import config
 from player import Player
-from util import DiceEvents, Pos, MouseClick, MILLS_EFFECTS
+from util import DiceEvents, Pos, MouseClick, MILLS_EFFECTS, Cost
 from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable, Building, Buildable, SettlementSlot
 
 Pile = List[Playable]
@@ -29,6 +29,7 @@ class Game:
         self.player2: Player = ComputerPlayer(self, self.player2Board, 2, Pos(6, 2))
         self.player1.opponent = self.player2
         self.player2.opponent = self.player1
+        self.currentPlayer: Player = self.player1
 
         self.yieldDice: Optional[int] = None
 
@@ -131,6 +132,20 @@ class Game:
         else:
             print('tournament has no winner')
 
+    def resource_can_be_grabbed(self, winner: Player) -> bool:
+        resourcesCanReceive: Set[Resource] = set()
+        resourcesCanGive: Set[Resource] = set()
+
+        for land in winner.landscapeCards:
+            if land.resourcesHeld < 3:
+                resourcesCanReceive.add(land.resource)
+
+        for land in winner.opponent.landscapeCards:
+            if land.resourcesHeld == 0:
+                resourcesCanGive.add(land.resource)
+
+        return bool(resourcesCanReceive.intersection(resourcesCanGive))
+
     def event_trade_profit(self) -> None:
         player1Profit = self.player1.get_trade_strength()
         player2Profit = self.player2.get_trade_strength()
@@ -140,12 +155,19 @@ class Game:
 
         if player1Profit > player2Profit:
             print('trade profit for player 1')
-            self.player1.grab_any_resource()
+            winner = self.player1
         elif player1Profit < player2Profit:
             print('trade profit for player 2')
-            self.player2.grab_any_resource()
+            winner = self.player2
         else:
             print('no trade profit')
+            return
+
+        if not self.resource_can_be_grabbed(winner):
+            print('sadly, no resource can be grabbed')
+            return
+
+        winner.grab_any_resource()
 
     def event_good_harvest(self) -> None:
         self.player1.pick_any_resource()
@@ -172,7 +194,14 @@ class Game:
 
 
     def card_event_builder(self) -> None:
-        pass
+        pile: Optional[Pile] = None
+        for player in [self.currentPlayer, self.currentPlayer.opponent]:
+            pile = player.opponent.select_pile(pile)
+            player.opponent.get_card_from_choice(pile)
+            cardIdx = player.select_card_to_throw_away()
+            card = player.cardsInHand.pop(cardIdx)
+            pile.append(card)
+            player.refresh_hand_board()
 
     def card_event_civil_war(self) -> None:
         pass
@@ -196,6 +225,7 @@ class Game:
     def card_event(self):
         event: Event = self.eventCards.pop(0)
         self.eventCards.append(event)
+
         if event.eventType == EventCardType.BUILDER:
             self.card_event_builder()
         elif event.eventType == EventCardType.CIVIL_WAR:
@@ -211,7 +241,7 @@ class Game:
         elif event.eventType == EventCardType.PLAQUE:
             self.card_event_plaque()
         else:
-            raise ValueError(f'unknown card event: {event}')
+            assert False, f'unknown card event: {event}'
 
     def select_card(self, card: Card):
         self.bigCard.set_square(Pos(0, 0), card)
@@ -229,10 +259,10 @@ class Game:
         posLst: List[Pos] = []
         if card.pos.x > 0:
             posLst.append(card.pos.left())
-            posLst.append(card.pos.left().up() if card.pos.y > card.player.midPos.y else card.pos.left().down())
+            posLst.append(card.pos.left().down() if card.pos.y > card.player.midPos.y else card.pos.left().up())
         if card.pos.x < self.mainBoard.size.x - 1:
             posLst.append(card.pos.right())
-            posLst.append(card.pos.right().up() if card.pos.y > card.player.midPos.y else card.pos.right().down())
+            posLst.append(card.pos.right().down() if card.pos.y > card.player.midPos.y else card.pos.right().up())
 
         retLst: List[Buildable] = []
         for pos in posLst:
@@ -261,6 +291,12 @@ class Game:
     def throw_event_dice(self) -> DiceEvent:
         return DiceEvents[random.randint(1, 6)]
 
+    def debug_give_resource(self, player: Player, cost: Cost):
+        for card in player.landscapeCards:
+            assert card.pos is not None
+            card.resourcesHeld = cost.get(card.resource)
+            self.mainBoard.refresh_square(card.pos)
+
     def play(self):
         for player in [self.player1, self.player2]:
             player.initial_land_setup()
@@ -268,16 +304,17 @@ class Game:
         for player in [self.player1, self.player2]:
             player.pick_starting_cards()
 
-        round = 1
+        roundNo = 1
 
-        player: Player = self.player1
+        #self.debug_give_resource(player, Cost(sheep=1, wood=1))
+
         while not self.is_victory():
-            print(f'\n========  round {round} ========')
-            player.throw_dice()
-            player.do_actions()
-            player.refill_hand(True)
-            player.opponent.refill_hand(False)
-            player = player.opponent
-            round += 1
+            print(f'\n========  round {roundNo} ========')
+            self.currentPlayer.throw_dice()
+            self.currentPlayer.do_actions()
+            self.currentPlayer.refill_hand(True)
+            self.currentPlayer.opponent.refill_hand(False)
+            self.currentPlayer = self.currentPlayer.opponent
+            roundNo += 1
 
 

@@ -46,13 +46,18 @@ class HumanPlayer(Player):
             else:
                 landSelected = None
 
-    def select_pile(self) -> Pile:
+    def select_pile(self, unavailablePile: Optional[Pile]=None) -> Pile:
         self.game.display.print_msg('select a pile')
-        board, pos = self.game.get_filtered_click(
-            (ClickFilter(board=self.game.mainBoard, cardNames=['back']),)
-        ).tuple()
-        pileIdx = pos.x - board.size.x + len(self.game.cardPiles)
-        return self.game.cardPiles[pileIdx]
+
+        while True:
+            board, pos = self.game.get_filtered_click(
+                (ClickFilter(board=self.game.mainBoard, cardNames=['back']),)
+            ).tuple()
+            pileIdx = pos.x - board.size.x + len(self.game.cardPiles)
+            if self.game.cardPiles[pileIdx] is unavailablePile:
+                print('this pile is already chosen, select another')
+                continue
+            return self.game.cardPiles[pileIdx]
 
     def get_card_from_choice(self, pile: Pile) -> None:
         selectedCardIdx: Optional[int] = None
