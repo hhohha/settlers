@@ -5,7 +5,7 @@ from click_filter import ClickFilter
 from enums import Button, DiceEvent
 from player import Player
 from util import Pos, MouseClick, RESOURCE_LIST, Cost
-from card import Landscape, Playable, Path, Town, Village, Settlement, Action, SettlementSlot, Buildable
+from card import Landscape, Playable, Path, Town, Village, Settlement, Action, SettlementSlot, Buildable, Knight, Fleet
 
 if TYPE_CHECKING:
     from game import Game
@@ -16,6 +16,11 @@ if TYPE_CHECKING:
 class HumanPlayer(Player):
     def __init__(self, game: Game, handBoard: Board, number: int, midPos: Pos):
         super().__init__(game, handBoard, number, True, midPos)
+
+    def __str__(self) -> str:
+        return 'human'
+
+    __repr__ = __str__
 
     def button_clicked(self, click: MouseClick) -> int:
         board, square = click.tuple()
@@ -206,6 +211,17 @@ class HumanPlayer(Player):
                     return click.pos
             else:
                 raise ValueError(f'unknown infra type: {infraType}')
+
+    def select_opponents_unit_to_remove(self) -> Buildable:
+        self.game.display.print_msg('select opponents knight or fleet to remove')
+        while True:
+            card = self.game.get_filtered_click((
+                ClickFilter(board=self.game.mainBoard, player=self.opponent, cardType=Knight),
+                ClickFilter(board=self.game.mainBoard, player=self.opponent, cardType=Fleet)
+            ))
+            assert isinstance(card, (Knight, Fleet))
+            if not self.game.is_protected_from_civil_war(card):
+                return card
 
     def swap_one_card(self) -> bool:
         self.game.display.print_msg('will you swap one card?')

@@ -10,14 +10,14 @@ from human_player import HumanPlayer
 import config
 from player import Player
 from util import DiceEvents, Pos, MouseClick, MILLS_EFFECTS, Cost
-from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable, Building, Buildable, SettlementSlot
+from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable, Building, Buildable, SettlementSlot, \
+    Knight, Fleet
 
 Pile = List[Playable]
 
 class Game:
     def __init__(self):
-        self.eventCards: List[EventCardType] = []
-
+        # prepare all boards
         self.mainBoard: Board = Board(Pos(*config.MAIN_BOARD_SQUARES), Pos(*config.CARD_IMG_SIZE_SMALL))
         self.player1Board = Board(Pos(*config.PLAYER_BOARD_SQUARES), Pos(*config.CARD_IMG_SIZE_SMALL))
         self.player2Board = Board(Pos(*config.PLAYER_BOARD_SQUARES), Pos(*config.CARD_IMG_SIZE_SMALL))
@@ -25,56 +25,62 @@ class Game:
         self.bigCard = Board(Pos(1, 1), Pos(*config.CARD_IMG_SIZE_BIG))
         self.buttons = Board(Pos(*config.BUTTON_BOARD_SQUARES), Pos(*config.BUTTON_SIZE))
 
+        # setup players
         self.player1: Player = HumanPlayer(self, self.player1Board, 1, Pos(6, 8))
         self.player2: Player = ComputerPlayer(self, self.player2Board, 2, Pos(6, 2))
-        self.player1.opponent = self.player2
-        self.player2.opponent = self.player1
+        self.player1.opponent, self.player2.opponent = self.player2, self.player1
         self.currentPlayer: Player = self.player1
 
-        self.yieldDice: Optional[int] = None
-
+        # setup display handler
         self.display = DisplayHandler()
-        self.display.add_board(self.mainBoard)
-        self.display.add_board(self.player1Board)
-        self.display.add_board(self.player2Board)
-        self.display.add_board(self.choiceBoard)
-        self.display.add_board(self.bigCard)
-        self.display.add_board(self.buttons)
+        for board in [self.mainBoard, self.player1Board, self.player2Board,self.choiceBoard, self.bigCard,self.buttons]:
+            self.display.add_board(board)
 
-        self.cardPiles: List[Pile] = [[] for _ in range(config.PILE_COUNT)]
-        self.pileSelected: Optional[List[Card]] = None
-        self.cardSelected: Optional[Card] = None
-
+        # setup cards
+        self.cardPiles: List[Pile] = self.prepare_piles()
         self.eventCards: List[Event] = CardData.create_event_cards()
-        self.landscapeCards: List[Landscape] = []
         self.infraCardsLeft = {
             Village: config.VILLAGES_COUNT,
             Path: config.PATHS_COUNT,
             Town: config.TOWNS_COUNT
         }
 
-        self.setup_playable_cards()
-        self.init_main_board()
-        self.setup_landscape_cards()
+        # init boards and setup their cards
+        self.boards_arrange()
+        self.init_main_board_starting_cards()
 
-        self.player1Board.fill_board(MetaCard('empty'))
-        self.player2Board.fill_board(MetaCard('empty'))
-        self.choiceBoard.fill_board(MetaCard('empty'))
         self.bigCard.fill_board(MetaCard('empty'))
         self.buttons.fill_board(MetaCard('empty'))
 
-    def get_filtered_click(self, clickFilters: Tuple[ClickFilter, ...]=()) -> MouseClick:
-        while True:
-            click = self.display.get_mouse_click()
-            if click.board.get_square(click.pos) is None:
-                continue
-            if not clickFilters:
-                return click
-            for clickFilter in clickFilters:
-                if clickFilter.accepts(click):
-                    return click
+        self.landscapeCards: List[Landscape] = self.prepare_landscape_cards()
 
-    def init_main_board(self):
+    ####################################################################################################################
+    #################   INITIALIZATION   ###############################################################################
+    ####################################################################################################################
+
+    def boards_arrange(self) -> None:
+        smallSpace, bigSpace = config.CARD_IMG_SPACING, config.BIG_SPACE
+        cardSize = self.mainBoard.squareSize
+
+        self.mainBoard.set_top_left(Pos(0, 0))
+        self.player1Board.set_top_left(Pos(self.mainBoard.size.x * (cardSize.x + 2 * smallSpace) + bigSpace,
+                                           (self.mainBoard.size.y - self.player1Board.size.y) * (
+                                                   cardSize.y + 2 * smallSpace)))
+
+        self.player2Board.set_top_left(
+            Pos(self.mainBoard.size.x * (cardSize.x + 2 * smallSpace) + smallSpace + bigSpace, 0))
+
+        self.choiceBoard.set_top_left(Pos(self.mainBoard.size.x * (cardSize.x + 2 * smallSpace) + smallSpace + bigSpace,
+                                          self.player2Board.bottomRight.y + 2 * bigSpace))
+
+        self.bigCard.set_top_left(Pos(self.mainBoard.size.x * (cardSize.x + 2 * smallSpace) + smallSpace + bigSpace,
+                                      (
+                                              self.player1Board.topLeft.y + self.choiceBoard.bottomRight.y) // 2 - self.bigCard.squareSize.y // 2))
+        self.buttons.set_top_left(Pos(self.bigCard.bottomRight.x + bigSpace, self.bigCard.topLeft.y))
+        self.display.textTopLeft = Pos(self.choiceBoard.topLeft.x, self.choiceBoard.bottomRight.y + 2 * smallSpace)
+
+
+    def init_main_board_starting_cards(self):
         for pos in (Pos(x, y) for x in range(self.mainBoard.size.x) for y in range(self.mainBoard.size.y)):
             self.mainBoard.set_square(pos, MetaCard('empty'))
 
@@ -92,29 +98,120 @@ class Game:
         for x in range(self.mainBoard.size.x - len(self.cardPiles), self.mainBoard.size.x):
             self.mainBoard.set_square(Pos(x, 5), MetaCard('back'))
 
-    def setup_landscape_cards(self):
+
+    def prepare_landscape_cards(self) -> List[Landscape]:
+        landCards: List[Landscape] = []
         for card in CardData.create_landscape_cards(self.player1, self.player2):
             if card.player is not None:
                 card.player.setup_land_card(card)
             else:
-                self.landscapeCards.append(card)
+                landCards.append(card)
+        return landCards
 
-    def setup_playable_cards(self) -> None:
+
+    def prepare_piles(self) -> List[Pile]:
+        cardPiles: List[Pile] = [[] for _ in range(config.PILE_COUNT)]
         cards: List[Playable] = CardData.create_playable_cards()
-        pileSize = len(cards) // len(self.cardPiles)
-        extraCards = len(cards) % len(self.cardPiles)
+        pileSize = len(cards) // len(cardPiles)
+        extraCards = len(cards) % len(cardPiles)
         startIdx, endIdx = 0, pileSize
 
-        for idx, _ in enumerate(self.cardPiles):
+        for idx, _ in enumerate(cardPiles):
             if extraCards > 0:
                 extraCards -= 1
                 endIdx += 1
-            self.cardPiles[idx] = cards[startIdx:endIdx]
+            cardPiles[idx] = cards[startIdx:endIdx]
             startIdx = endIdx
             endIdx += pileSize
+        return cardPiles
 
-    def is_victory(self) -> bool:
-        return self.player1.victoryPoints >= config.VICTORY_POINTS or self.player2.victoryPoints >= config.VICTORY_POINTS
+    ####################################################################################################################
+    #################   CARD EVENTS      ###############################################################################
+    ####################################################################################################################
+
+    def card_event_builder(self) -> None:
+        pile: Optional[Pile] = None
+        for player in [self.currentPlayer, self.currentPlayer.opponent]:
+            pile = player.opponent.select_pile(pile)
+            player.opponent.get_card_from_choice(pile)
+            cardIdx = player.select_card_to_throw_away()
+            card = player.cardsInHand.pop(cardIdx)
+            pile.append(card)
+            player.refresh_hand_board()
+
+
+    def card_event_civil_war(self) -> None:
+        for player in [self.currentPlayer, self.currentPlayer.opponent]:
+            if self.can_remove_unit_civil_war(player.opponent):
+                print(f'player {player.opponent} has something to be removed')
+                cardToRemove: Buildable = player.select_opponents_unit_to_remove()
+                self.remove_card_from_board(cardToRemove)
+                player.opponent.cardsInHand.append(cardToRemove)
+                player.opponent.refresh_hand_board()
+            else:
+                print(f'player {player.opponent} has nothing to be removed')
+
+    def card_event_rich_year(self) -> None:
+        pass
+
+
+    def card_event_advance(self) -> None:
+        pass
+
+
+    def card_event_new_year(self) -> None:
+        random.shuffle(self.eventCards)
+
+
+    def card_event_conflict(self) -> None:
+        pass
+
+
+    def card_event_plaque(self) -> None:
+        pass
+
+
+    def card_event(self):
+        event: Event = self.eventCards.pop(0)
+        self.eventCards.append(event)
+
+        event.eventType = EventCardType.CIVIL_WAR
+
+        if event.eventType == EventCardType.BUILDER:
+            self.card_event_builder()
+        elif event.eventType == EventCardType.CIVIL_WAR:
+            self.card_event_civil_war()
+        elif event.eventType == EventCardType.RICH_YEAR:
+            self.card_event_rich_year()
+        elif event.eventType == EventCardType.ADVANCE:
+            self.card_event_advance()
+        elif event.eventType == EventCardType.NEW_YEAR:
+            self.card_event_new_year()
+        elif event.eventType == EventCardType.CONFLICT:
+            self.card_event_conflict()
+        elif event.eventType == EventCardType.PLAQUE:
+            self.card_event_plaque()
+        else:
+            assert False, f'unknown card event: {event}'
+
+    ####################################################################################################################
+    #################   DICE EVENTS      ###############################################################################
+    ####################################################################################################################
+
+    def handle_dice_events(self, event: DiceEvent):
+        if event == DiceEvent.TOURNAMENT:
+            self.event_tournament()
+        elif event == DiceEvent.TRADE_PROFIT:
+            self.event_trade_profit()
+        elif event == DiceEvent.AMBUSH:
+            self.event_ambush()
+        elif event == DiceEvent.GOOD_HARVEST:
+            self.event_good_harvest()
+        elif event == DiceEvent.CARD_EVENT:
+            self.card_event()
+        else:
+            raise ValueError(f'unknown dice event: {event}')
+
 
     def event_tournament(self) -> None:
         player1Strength = self.player1.get_tournament_strength()
@@ -132,19 +229,6 @@ class Game:
         else:
             print('tournament has no winner')
 
-    def resource_can_be_grabbed(self, winner: Player) -> bool:
-        resourcesCanReceive: Set[Resource] = set()
-        resourcesCanGive: Set[Resource] = set()
-
-        for land in winner.landscapeCards:
-            if land.resourcesHeld < 3:
-                resourcesCanReceive.add(land.resource)
-
-        for land in winner.opponent.landscapeCards:
-            if land.resourcesHeld == 0:
-                resourcesCanGive.add(land.resource)
-
-        return bool(resourcesCanReceive.intersection(resourcesCanGive))
 
     def event_trade_profit(self) -> None:
         player1Profit = self.player1.get_trade_strength()
@@ -163,85 +247,65 @@ class Game:
             print('no trade profit')
             return
 
-        if not self.resource_can_be_grabbed(winner):
+        if not winner.can_grab_resource_from_opponent():
             print('sadly, no resource can be grabbed')
             return
 
         winner.grab_any_resource()
 
+
     def event_good_harvest(self) -> None:
         self.player1.pick_any_resource()
         self.player2.pick_any_resource()
+
 
     def event_ambush(self) -> None:
         for player in [self.player1, self.player2]:
             if player.get_unprotected_resources_cnt() > config.AMBUSH_MAX_RESOURCES:
                 player.lose_ambush_resources()
 
-    def handle_dice_events(self, event: DiceEvent):
-        if event == DiceEvent.TOURNAMENT:
-            self.event_tournament()
-        elif event == DiceEvent.TRADE_PROFIT:
-            self.event_trade_profit()
-        elif event == DiceEvent.AMBUSH:
-            self.event_ambush()
-        elif event == DiceEvent.GOOD_HARVEST:
-            self.event_good_harvest()
-        elif event == DiceEvent.CARD_EVENT:
-            self.card_event()
-        else:
-            raise ValueError(f'unknown dice event: {event}')
+    ####################################################################################################################
+    #################                    ###############################################################################
+    ####################################################################################################################
+
+    def get_filtered_click(self, clickFilters: Tuple[ClickFilter, ...] = ()) -> MouseClick:
+        while True:
+            click: MouseClick = self.display.get_mouse_click()
+            if click.board.get_square(click.pos) is None:
+                continue
+            if not clickFilters:
+                return click
+            for clickFilter in clickFilters:
+                if clickFilter.accepts(click):
+                    return click
 
 
-    def card_event_builder(self) -> None:
-        pile: Optional[Pile] = None
-        for player in [self.currentPlayer, self.currentPlayer.opponent]:
-            pile = player.opponent.select_pile(pile)
-            player.opponent.get_card_from_choice(pile)
-            cardIdx = player.select_card_to_throw_away()
-            card = player.cardsInHand.pop(cardIdx)
-            pile.append(card)
-            player.refresh_hand_board()
-
-    def card_event_civil_war(self) -> None:
-        pass
-
-    def card_event_rich_year(self) -> None:
-        pass
-
-    def card_event_advance(self) -> None:
-        pass
-
-    def card_event_new_year(self) -> None:
-        random.shuffle(self.eventCards)
-
-    def card_event_conflict(self) -> None:
-        pass
-
-    def card_event_plaque(self) -> None:
-        pass
+    def is_victory(self) -> bool:
+        return self.player1.victoryPoints >= config.VICTORY_POINTS or self.player2.victoryPoints >= config.VICTORY_POINTS
 
 
-    def card_event(self):
-        event: Event = self.eventCards.pop(0)
-        self.eventCards.append(event)
+    def is_protected_from_civil_war(self, card: Knight | Fleet) -> bool:
+        for protection in config.CIVIL_WAR_PROTECTION:
+            if protection in map(lambda c: c.name, card.settlement.cards):
+                return True
+        return False
 
-        if event.eventType == EventCardType.BUILDER:
-            self.card_event_builder()
-        elif event.eventType == EventCardType.CIVIL_WAR:
-            self.card_event_civil_war()
-        elif event.eventType == EventCardType.RICH_YEAR:
-            self.card_event_rich_year()
-        elif event.eventType == EventCardType.ADVANCE:
-            self.card_event_advance()
-        elif event.eventType == EventCardType.NEW_YEAR:
-            self.card_event_new_year()
-        elif event.eventType == EventCardType.CONFLICT:
-            self.card_event_conflict()
-        elif event.eventType == EventCardType.PLAQUE:
-            self.card_event_plaque()
-        else:
-            assert False, f'unknown card event: {event}'
+    def can_remove_unit_civil_war(self, player: Player) -> bool:
+        for knight in player.knightsPlayed:
+            if not self.is_protected_from_civil_war(knight):
+                return True
+        for fleet in player.fleetPlayed:
+            if not self.is_protected_from_civil_war(fleet):
+                return True
+        return False
+
+    def remove_card_from_board(self, card: Buildable) -> None:
+        slot = SettlementSlot(card.pos)
+        self.mainBoard.set_square(card.pos, slot)
+        slot.settlement = card.settlement
+        card.settlement.cards.remove(card)
+        card.settlement.cards.append(slot)
+
 
     def select_card(self, card: Card):
         self.bigCard.set_square(Pos(0, 0), card)
@@ -277,8 +341,9 @@ class Game:
             return 1
         buildingNeeded = MILLS_EFFECTS[card.resource]
         # TODO this double isinstance is ugly - improve it somehow
-        buildingsAvailable = filter (lambda b: isinstance(b, Building), self.get_land_neighbors(card))
-        return 2 if buildingNeeded in map(lambda b: isinstance(b, Building) and b.buildingType, buildingsAvailable) else 1
+        buildingsAvailable = filter(lambda b: isinstance(b, Building), self.get_land_neighbors(card))
+        return 2 if buildingNeeded in map(lambda b: isinstance(b, Building) and b.buildingType,
+                                          buildingsAvailable) else 1
 
     def land_yield(self, number: int):
         for player in [self.player1, self.player2]:
@@ -306,7 +371,7 @@ class Game:
 
         roundNo = 1
 
-        #self.debug_give_resource(player, Cost(sheep=1, wood=1))
+        self.debug_give_resource(self.currentPlayer, Cost(sheep=2, wood=2, rock=3, grain=2))
 
         while not self.is_victory():
             print(f'\n========  round {roundNo} ========')
@@ -316,5 +381,3 @@ class Game:
             self.currentPlayer.opponent.refill_hand(False)
             self.currentPlayer = self.currentPlayer.opponent
             roundNo += 1
-
-

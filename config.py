@@ -26,5 +26,6 @@ RESOURCE_LIST = ['gold', 'rock', 'sheep', 'wood', 'brick', 'grain']
 CARDS_INCREASING_HAND_CNT = ['library', 'cloister']
 BROWSE_DISCOUNT_BUILDINGS = ['town_hall']
 STOLEN_AMBUSH_RESOURCES = ['rock', 'sheep']
+CIVIL_WAR_PROTECTION = ['church']
 
 AMBUSH_MAX_RESOURCES = 7

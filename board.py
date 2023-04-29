@@ -3,7 +3,6 @@ import config
 from card import Card
 from util import Pos
 
-
 class Board:
     def __init__(self, size: Pos, squareSize: Pos):
         self.size: Pos = size

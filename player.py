@@ -1,7 +1,7 @@
 from __future__ import annotations
 import copy
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, List, Dict, Optional, Type
+from typing import TYPE_CHECKING, List, Dict, Optional, Type, Set
 from card import Action, Buildable, Building, Playable, SettlementSlot, Village, Town, Path, Knight, Fleet
 from config import BROWSE_DISCOUNT_BUILDINGS, CARDS_INCREASING_HAND_CNT, STOLEN_AMBUSH_RESOURCES
 from enums import Resource
@@ -132,6 +132,12 @@ class Player(ABC):
         if pos is None:
             return
 
+        slot = self.game.mainBoard.get_square(pos)
+        assert isinstance(slot, SettlementSlot), f'cannot place card to {pos}, slot is not valid'
+
+        card.settlement = slot.settlement
+        card.settlement.cards.remove(slot)
+        card.settlement.cards.append(card)
         self.game.mainBoard.set_square(pos, card)
         card.pos = pos
 
@@ -142,7 +148,8 @@ class Player(ABC):
         elif isinstance(card, Fleet):
             self.fleetPlayed.append(card)
 
-        self.apply_card_effect()
+        #self.apply_card_effect()
+
         self.cardsInHand.remove(card)
         self.refresh_hand_board()
         self.pay(card.cost)
@@ -192,7 +199,7 @@ class Player(ABC):
             slot = SettlementSlot(p)
             self.game.mainBoard.set_square(p, slot)
             slot.settlement = newVillage
-            newVillage.slots.append(slot)
+            newVillage.cards.append(slot)
 
     def place_town_to_board(self, pos: Pos) -> None:
         newTown = Town(pos, self)
@@ -201,14 +208,14 @@ class Player(ABC):
         for p in [pos.up(), pos.down()]:
             slot = self.game.mainBoard.get_square(p)
             assert isinstance(slot, SettlementSlot) or isinstance(slot, Buildable)
-            newTown.slots.append(slot)
+            newTown.cards.append(slot)
             slot.settlement = newTown
 
         for p in [pos.up(2), pos.down(2)]:
             slot = SettlementSlot(p)
             self.game.mainBoard.set_square(p, slot)
             slot.settlement = newTown
-            newTown.slots.append(slot)
+            newTown.cards.append(slot)
 
 
     def pay_specific(self, cost: Cost) -> None:
@@ -235,6 +242,19 @@ class Player(ABC):
         else:
             return self.pay_any(cost)
 
+    def can_grab_resource_from_opponent(self):
+        resourcesCanReceive: Set[Resource] = set()
+        resourcesCanGive: Set[Resource] = set()
+
+        for land in self.landscapeCards:
+            if land.resourcesHeld < 3:
+                resourcesCanReceive.add(land.resource)
+
+        for land in self.opponent.landscapeCards:
+            if land.resourcesHeld == 0:
+                resourcesCanGive.add(land.resource)
+
+        return bool(resourcesCanReceive.intersection(resourcesCanGive))
 
     #TODO - refactor duplicated code
     def refill_hand(self, canSwap: bool) -> None:
@@ -323,4 +343,8 @@ class Player(ABC):
 
     @abstractmethod
     def select_card_to_throw_away(self) -> int:
+        pass
+
+    @abstractmethod
+    def select_opponents_unit_to_remove(self) -> Buildable:
         pass

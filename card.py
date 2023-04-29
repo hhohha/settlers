@@ -47,20 +47,17 @@ class Settlement(Card, ABC):
         super().__init__(name)
         self.pos = pos
         self.player = player
+        self.cards: List[Buildable | SettlementSlot] = []
 
 class Village(Settlement):
     def __init__(self, pos: Pos, player: Player):
         super().__init__('village', pos, player)
-        self.cards: List[Buildable] = []
-        self.slots: List[Buildable | SettlementSlot] = []
 
     cost: Cost = Cost(wood=1, sheep=1, brick=1, grain=1)
 
 class Town(Settlement):
     def __init__(self, pos: Pos, player: Player):
         super().__init__('town', pos, player)
-        self.cards: List[Buildable] = []
-        self.slots: List[Buildable | SettlementSlot] = []
 
     cost: Cost = Cost(rock=3, grain=2)
 

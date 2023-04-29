@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, Type
-from card import Town, Path, Village, Playable, Action, Landscape
+from card import Town, Path, Village, Playable, Action, Landscape, Buildable
 from player import Player
 
 if TYPE_CHECKING:
@@ -11,6 +11,12 @@ if TYPE_CHECKING:
 class ComputerPlayer(Player):
     def __init__(self, game: Game, handBoard: Board, number: int, midPos: Pos):
         super().__init__(game, handBoard, number, False, midPos)
+
+    def __str__(self) -> str:
+        return 'computer'
+
+    __repr__ = __str__
+
 
     def initial_land_setup(self) -> None:
         # TODO - move gold to the middle
@@ -25,6 +31,7 @@ class ComputerPlayer(Player):
         for idx, pile in enumerate(self.game.cardPiles):
             if len(pile) > maxLen and pile is not unavailablePile:
                 maxLen, resIdx = len(pile), idx
+        print('')
         return self.game.cardPiles[resIdx]
 
     def pick_starting_cards(self) -> None:
@@ -98,3 +105,14 @@ class ComputerPlayer(Player):
 
     def get_card_from_choice(self, pile: Pile) -> None:
         pass
+
+    def select_opponents_unit_to_remove(self) -> Buildable:
+        for knight in self.opponent.knightsPlayed:
+            if not self.game.is_protected_from_civil_war(knight):
+                return knight
+
+        for fleet in self.opponent.fleetPlayed:
+            if not self.game.is_protected_from_civil_war(fleet):
+                return fleet
+
+        assert False, 'opponent has no knight or fleet to remove'
