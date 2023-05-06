@@ -24,6 +24,7 @@ MAX_LAND_RESOURCES = 3
 
 RESOURCE_LIST = ['gold', 'rock', 'sheep', 'wood', 'brick', 'grain']
 CARDS_INCREASING_HAND_CNT = ['library', 'cloister']
+ADVANCE_BUILDINGS = ['cloister', 'library']   # university
 BROWSE_DISCOUNT_BUILDINGS = ['town_hall']
 STOLEN_AMBUSH_RESOURCES = ['rock', 'sheep']
 CIVIL_WAR_PROTECTION = ['church']

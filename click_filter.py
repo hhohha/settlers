@@ -1,4 +1,4 @@
-from typing import Optional, Type, List, Callable
+from typing import Optional, Type, List, Callable, Tuple
 from dataclasses import dataclass
 
 from board import Board
@@ -10,7 +10,7 @@ from util import MouseClick
 @dataclass
 class ClickFilter:
     board: Optional[Board] = None
-    cardType: Optional[Type] = None
+    cardType: None | Type | Tuple[Type, ...] = None
     cardNames: Optional[List[str]] = None
     cardNamesNeg: bool = False
     player: Optional[Player] = None

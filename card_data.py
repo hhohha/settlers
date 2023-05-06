@@ -1,9 +1,13 @@
 import random
 from typing import List, TypedDict, Optional, Set
+
+import config
 from card import Landscape, Event, Playable, Fleet, Knight, Building, Action
 from enums import BuildingType, Resource, ActionCardType, EventCardType
 from player import Player
 from util import Cost
+
+Pile = List[Playable]
 
 class KnightData(TypedDict):
     name: str
@@ -84,6 +88,23 @@ class CardData:
                 cards.append(Event(eventCard['name'], eventCard['type']))
         random.shuffle(cards)
         return cards
+
+    @staticmethod
+    def prepare_piles() -> List[Pile]:
+        cardPiles: List[Pile] = [[] for _ in range(config.PILE_COUNT)]
+        cards: List[Playable] = CardData.create_playable_cards()
+        pileSize = len(cards) // len(cardPiles)
+        extraCards = len(cards) % len(cardPiles)
+        startIdx, endIdx = 0, pileSize
+
+        for idx, _ in enumerate(cardPiles):
+            if extraCards > 0:
+                extraCards -= 1
+                endIdx += 1
+            cardPiles[idx] = cards[startIdx:endIdx]
+            startIdx = endIdx
+            endIdx += pileSize
+        return cardPiles
 
     @staticmethod
     def create_playable_cards() -> List[Playable]:

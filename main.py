@@ -3,13 +3,11 @@ import time
 from game import Game
 
 # TODOS
-#  - exchange own resources 3:1
-#  - use fleets
-#  - use mint
-#  - implement card events
 #  - implement action cards
-#  - implement protective cards
+#      - alchemist
+#      - scout
 #  - implement AI
+#  - voluntarily remove card from board
 
 # BUGS
 #  - victory doesn't work

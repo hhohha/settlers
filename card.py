@@ -32,7 +32,8 @@ class Landscape(Card):
         self.resourcesHeld = 0
         self.pos: Optional[Pos] = None
         self.player: Optional[Player] = None
-        self.protectedByWarehouse: bool = False
+        self.settlements: List[Settlement] = []
+        #self.protectedByWarehouse: bool = False
 
 class Path(Card):
     def __init__(self, pos: Pos, player: Player):

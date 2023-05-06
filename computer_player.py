@@ -1,7 +1,10 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, Type
-from card import Town, Path, Village, Playable, Action, Landscape, Buildable
+from card import Town, Path, Village, Playable, Action, Landscape, Buildable, Building, Knight, Fleet
+from config import MAX_LAND_RESOURCES
+from enums import ActionCardType, Resource
 from player import Player
+from time import sleep
 
 if TYPE_CHECKING:
     from game import Game
@@ -62,15 +65,35 @@ class ComputerPlayer(Player):
     def get_new_infra_position(self, infraType: Type[Village | Town | Path]) -> Optional[Pos]:
         pass
 
-    def grab_any_resource(self) -> None:
+    def wait_for_ok(self) -> None:
+        sleep(1)
+
+    def grab_any_resource_if_possible(self) -> None:
+        if not self.can_grab_resource_from_opponent():
+            return
+
         # TODO - improve, currently it gets anything available
         assert self.opponent is not None
         for opponentLand in self.opponent.landscapeCards:
             if opponentLand.resourcesHeld > 0:
                 for myLand in self.landscapeCards:
-                    if myLand.resource == opponentLand.resource and myLand.resourcesHeld < 3:
+                    if myLand.resource == opponentLand.resource and myLand.resourcesHeld < MAX_LAND_RESOURCES:
                         opponentLand.resourcesHeld -= 1
                         myLand.resourcesHeld += 1
+                        assert myLand.pos is not None and opponentLand.pos is not None
+                        self.game.mainBoard.refresh_square(myLand.pos)
+                        self.game.mainBoard.refresh_square(opponentLand.pos)
+                        return
+
+    def give_any_resource(self) -> None:
+        # TODO - improve, currently it gives anything available
+        assert self.opponent is not None
+        for opponentLand in self.opponent.landscapeCards:
+            if opponentLand.resourcesHeld < MAX_LAND_RESOURCES:
+                for myLand in self.landscapeCards:
+                    if myLand.resource == opponentLand.resource and myLand.resourcesHeld > 0:
+                        opponentLand.resourcesHeld += 1
+                        myLand.resourcesHeld -= 1
                         assert myLand.pos is not None and opponentLand.pos is not None
                         self.game.mainBoard.refresh_square(myLand.pos)
                         self.game.mainBoard.refresh_square(opponentLand.pos)
@@ -79,7 +102,7 @@ class ComputerPlayer(Player):
     def pick_any_resource(self) -> None:
         # TODO - improve
         for land in self.landscapeCards:
-            if land.resourcesHeld < 3:
+            if land.resourcesHeld < MAX_LAND_RESOURCES:
                 land.resourcesHeld += 1
                 assert land.pos is not None
                 self.game.mainBoard.refresh_square(land.pos)
@@ -90,9 +113,6 @@ class ComputerPlayer(Player):
 
     def get_new_card_position(self, infraType: Type[Village | Path | Town | Playable], townOnly=False) -> Optional[Pos]:
         return None
-
-    def play_action_card(self, card: Action) -> None:
-        pass
 
     def select_card_to_pay(self, resource: Optional[Cost]) -> Landscape:
         pass
@@ -116,3 +136,31 @@ class ComputerPlayer(Player):
                 return fleet
 
         assert False, 'opponent has no knight or fleet to remove'
+
+    def decide_use_defence(self, againstCard: ActionCardType) -> bool:
+        return True
+
+    def select_building_to_burn(self) -> Building:
+        assert self.opponent.buildingsPlayed, f"cannot burn anything"
+        return self.opponent.buildingsPlayed[0]
+
+    def select_knight_to_kill(self) -> Knight:
+        assert self.opponent.knightsPlayed, f"cannot kill anyone"
+        return self.opponent.knightsPlayed[0]
+
+    def select_opponents_card_to_discard(self) -> Playable:
+        card = self.game.choiceBoard.get_square(Pos(0, 0))
+        assert isinstance(card, Playable), f'choice board has invalid content'
+        return card
+
+    def trade_with_caravan(self) -> None:
+        pass
+
+    def select_resource_to_trade_for(self) -> Optional[Resource]:
+        pass
+
+    def select_resource_to_purchase(self) -> Landscape:
+        pass
+
+    def select_unit_to_steal(self) -> Knight | Fleet:
+        pass

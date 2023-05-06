@@ -2,7 +2,8 @@ from __future__ import annotations
 from typing import Union, Tuple, TYPE_CHECKING, List, Optional, Type, Callable, Dict
 from dataclasses import dataclass
 from config import RESOURCE_LIST
-from enums import DiceEvent, Resource, BuildingType
+from enums import DiceEvent, Resource, BuildingType, ActionCardType
+
 if TYPE_CHECKING:
     from board import Board
     from card import Playable
@@ -103,7 +104,7 @@ class MouseClick:
     def tuple(self) -> Tuple[Board, Pos]:
         return self.board, self.pos
 
-DiceEvents = {
+DiceEvents: Dict[int, DiceEvent] = {
     1: DiceEvent.TOURNAMENT,
     2: DiceEvent.TRADE_PROFIT,
     3: DiceEvent.AMBUSH,
@@ -112,3 +113,8 @@ DiceEvents = {
     6: DiceEvent.CARD_EVENT
 }
 
+DEFENCE_CARDS: Dict[ActionCardType, ActionCardType] = {
+    ActionCardType.ARSON: ActionCardType.BISHOP,
+    ActionCardType.BLACK_KNIGHT: ActionCardType.WITCH,
+    ActionCardType.AMBUSH: ActionCardType.BISHOP
+}

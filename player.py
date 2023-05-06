@@ -1,11 +1,13 @@
 from __future__ import annotations
 import copy
 from abc import ABC, abstractmethod
+from random import randint
 from typing import TYPE_CHECKING, List, Dict, Optional, Type, Set
-from card import Action, Buildable, Building, Playable, SettlementSlot, Village, Town, Path, Knight, Fleet
-from config import BROWSE_DISCOUNT_BUILDINGS, CARDS_INCREASING_HAND_CNT, STOLEN_AMBUSH_RESOURCES
-from enums import Resource
-from util import Pos, Cost
+from card import Action, Buildable, Building, Playable, SettlementSlot, Village, Town, Path, Knight, Fleet, Settlement
+from config import BROWSE_DISCOUNT_BUILDINGS, CARDS_INCREASING_HAND_CNT, STOLEN_AMBUSH_RESOURCES, ADVANCE_BUILDINGS, \
+    MAX_LAND_RESOURCES
+from enums import Resource, ActionCardType
+from util import Pos, Cost, DEFENCE_CARDS
 
 if TYPE_CHECKING:
     from card import Landscape
@@ -19,19 +21,28 @@ class Player(ABC):
         self.handBoard = handBoard
         self.number: int = number
         self.victoryPoints = 0
-        self.tradePoints = 0
-        self.tournamentPoints = 0
-        self.battlePoints = 0
         self.cardsInHandCnt: int = 3
         self.cardsInHand: List[Playable] = []
         self.landscapeCards: List[Landscape] = []
         self.knightsPlayed: List[Knight] = []
         self.fleetPlayed:  List[Fleet] = []
         self.buildingsPlayed: List[Building] = []
+        self.settlements: List[Settlement] = []
         self.handBoardVisible: bool = handBoardVisible
         self.midPos: Pos = midPos
         self.initialLandPos: List[Pos] = [midPos.up(), midPos.down(), midPos + Pos(2, 1), midPos + Pos(2, -1),
                                           midPos + Pos(-2, 1), midPos + Pos(-2, -1)]
+
+    def get_victory_points(self) -> int:
+        points = 0
+        points += sum(map(lambda s: 2 if isinstance(s, Town) else 1, self.settlements))
+        points += sum(map(lambda b: b.victoryPoints, self.buildingsPlayed))
+        if self.get_trade_strength() > self.opponent.get_trade_strength():
+            points += 1
+        if self.get_battle_strength() > self.opponent.get_battle_strength():
+            points += 1
+
+        return points
 
     def get_resources_available(self) -> Cost:
         resources: Dict[Resource, int] = {
@@ -116,6 +127,137 @@ class Player(ABC):
             self.landscapeCards.append(newLand)
             newLand.pos = pos
 
+    def spy_can_steal_card(self) -> bool:
+        return any(map(lambda x: isinstance(x, (Fleet, Knight)), self.opponent.cardsInHand))
+
+    def play_action_card_spy(self) -> None:
+        self.game.display_cards_for_choice(self.opponent.cardsInHand)
+        if not self.spy_can_steal_card():
+            print('opponent has no unit to steal')
+            self.wait_for_ok()
+            return
+
+        unit = self.select_unit_to_steal()
+        self.opponent.cardsInHand.remove(unit)
+        self.cardsInHand.append(unit)
+        self.refresh_hand_board()
+        self.opponent.refresh_hand_board()
+
+    def has_card(self, name: str) -> bool:
+        return any(map(lambda x: x.name == name, self.cardsInHand))
+
+    def remove_action_card(self, cardType: ActionCardType) -> None:
+        for card in self.cardsInHand:
+            if isinstance(card, Action) and card.actionType == cardType:
+                self.cardsInHand.remove(card)
+                return
+        assert False, f'player doesn\'t have action card {cardType}'
+
+    def play_action_card_arson(self) -> None:
+        winner = self.action_card_get_toss_winner(ActionCardType.ARSON)
+        if not winner.opponent.buildingsPlayed:
+            print(f'cannot burn anything')
+            return
+
+        burntBuilding: Building = winner.select_building_to_burn()
+        winner.opponent.take_back_to_hand(burntBuilding)
+
+    def take_back_to_hand(self, card: Buildable):
+        assert card.pos is not None and card.settlement is not None
+        slot = SettlementSlot(card.pos)
+
+        slot.settlement = card.settlement
+        slot.settlement.cards.append(slot)
+        slot.settlement.cards.remove(card)
+
+        if isinstance(card, Building):
+            self.buildingsPlayed.remove(card)
+        elif isinstance(card, Knight):
+            self.knightsPlayed.remove(card)
+        elif isinstance(card, Fleet):
+            self.fleetPlayed.remove(card)
+
+        card.settlement = None
+        self.cardsInHand.append(card)
+        self.refresh_hand_board()
+        self.game.mainBoard.set_square(card.pos, slot)
+
+    def play_action_card_ambush(self) -> None:
+        winner = self.action_card_get_toss_winner(ActionCardType.AMBUSH)
+        for _ in range(2):
+            winner.grab_any_resource_if_possible()
+
+    def play_action_card_black_knight(self) -> None:
+        winner = self.action_card_get_toss_winner(ActionCardType.BLACK_KNIGHT)
+
+        if not winner.opponent.knightsPlayed:
+            print(f'black knight cannot kill anyone')
+            return
+
+        killedKnight: Knight = winner.select_knight_to_kill()
+        winner.opponent.take_back_to_hand(killedKnight)
+
+    def action_card_get_toss_winner(self, actionType: ActionCardType) -> Player:
+        assert actionType in DEFENCE_CARDS, f'no defence against {actionType.value}'
+
+        if self.opponent.use_defence(actionType):
+            self.opponent.remove_action_card(DEFENCE_CARDS[actionType])
+            print(f'defence against {actionType.value} activated')
+            actionSuccessFrom6 = 2
+        else:
+            print(f'defence against {actionType.value} NOT activated')
+            actionSuccessFrom6 = 5
+
+        self.game.display.print_msg('press ok to toss')
+        self.wait_for_ok()
+
+        toss = randint(1, 6)
+        if toss > actionSuccessFrom6:
+            print(f'tossed {toss}, action succeeded')
+            return self
+        else:
+            print(f'tossed {toss}, action failed')
+            return self.opponent
+
+    def play_action_card_trader(self) -> None:
+        for _ in range(2):
+            self.grab_any_resource_if_possible()
+
+        self.give_any_resource()
+
+    def play_action_card_caravan(self) -> None:
+        if sum(map(lambda c: c.resourcesHeld, self.landscapeCards)) == 0:
+            print('nothing to trade for')
+            return
+
+        for _ in range(2):
+            self.trade_with_caravan()
+
+
+    def play_action_card(self, card: Action) -> None:
+        # following action cards can be played only at certain specific situation (not here):
+        # alchemist, bishop, witch, scout
+
+        if card.actionType == ActionCardType.SPY:
+            self.play_action_card_spy()
+        elif card.actionType == ActionCardType.ARSON:
+            self.play_action_card_arson()
+        elif card.actionType == ActionCardType.AMBUSH:
+            self.play_action_card_ambush()
+        elif card.actionType == ActionCardType.TRADER:
+            self.play_action_card_trader()
+        elif card.actionType == ActionCardType.CARAVAN:
+            self.play_action_card_caravan()
+        elif card.actionType == ActionCardType.BLACK_KNIGHT:
+            self.play_action_card_black_knight()
+        else:
+            print(f'action card {card.name} cannot be played now')
+            return
+
+        self.cardsInHand.remove(card)
+        self.refresh_hand_board()
+
+
     def play_card_from_hand(self, card: Playable) -> None:
         if isinstance(card, Action):
             self.play_action_card(card)
@@ -134,6 +276,8 @@ class Player(ABC):
 
         slot = self.game.mainBoard.get_square(pos)
         assert isinstance(slot, SettlementSlot), f'cannot place card to {pos}, slot is not valid'
+
+        assert slot.settlement is not None
 
         card.settlement = slot.settlement
         card.settlement.cards.remove(slot)
@@ -154,18 +298,55 @@ class Player(ABC):
         self.refresh_hand_board()
         self.pay(card.cost)
 
-    def apply_card_effect(self) -> None:
-            # TODO - implement this
-        pass
+    #def apply_card_effect(self) -> None:
+    #        # TODO - implement this ??
+
+    def get_advance_resource_cnt(self) -> int:
+        return sum(map(lambda b: 1 if b.name in ADVANCE_BUILDINGS else 0, self.buildingsPlayed))
 
     def get_unprotected_resources_cnt(self) -> int:
-        return sum(map(lambda l: 0 if l.protectedByWarehouse else l.resourcesHeld, self.landscapeCards))
+        return sum(map(lambda l: 0 if self.game.is_protected_by_warehouse(l) else l.resourcesHeld, self.landscapeCards))
 
     def lose_ambush_resources(self):
         for land in self.landscapeCards:
             if land.resource.value in STOLEN_AMBUSH_RESOURCES:
                 land.resourcesHeld = 0
                 self.game.mainBoard.refresh_square(land.pos)
+
+    def has_global_plaque_protection(self) -> bool:
+        return 'aquaduct' in map(lambda b: b.name, self.buildingsPlayed)
+
+    def get_resource_cost(self, resource: Resource) -> int:
+        if resource == Resource.GOLD:
+            return 1 if 'mint' in map(lambda b: b.name, self.buildingsPlayed) else 3
+
+        return 2 if resource in map(lambda f: f.affectedResource, self.fleetPlayed) else 3
+
+    def trade(self) -> None:
+        print('trading started')
+        resourceToPay: Optional[Resource] = self.select_resource_to_trade_for()
+        if resourceToPay is None:
+            return
+
+        rate: int = self.get_resource_cost(resourceToPay)
+
+        print(f'{resourceToPay.value} can be traded with rate of {rate}')
+
+        cost = Cost()
+        setattr(cost, resourceToPay.value, rate)
+        if not self.can_cover_cost(cost):
+            print(f'trade not possible, not enough {resourceToPay.value}')
+            return
+
+        self.pay(cost)
+
+        land: Optional[Landscape] = self.select_resource_to_purchase()
+        if land is None:
+            return
+
+        land.resourcesHeld += 1
+        assert land.pos is not None
+        self.game.mainBoard.refresh_square(land.pos)
 
     def build_infrastructure(self, infraType: Type[Town | Village | Path]) -> None:
         if self.game.infraCardsLeft[infraType] < 1:
@@ -195,6 +376,7 @@ class Player(ABC):
     def place_village_to_board(self, pos: Pos) -> None:
         newVillage = Village(pos, self)
         self.game.mainBoard.set_square(pos, newVillage)
+        self.settlements.append(newVillage)
         for p in [pos.up(), pos.down()]:
             slot = SettlementSlot(p)
             self.game.mainBoard.set_square(p, slot)
@@ -204,6 +386,7 @@ class Player(ABC):
     def place_town_to_board(self, pos: Pos) -> None:
         newTown = Town(pos, self)
         self.game.mainBoard.set_square(pos, newTown)
+        self.settlements.append(newTown)
 
         for p in [pos.up(), pos.down()]:
             slot = self.game.mainBoard.get_square(p)
@@ -247,7 +430,7 @@ class Player(ABC):
         resourcesCanGive: Set[Resource] = set()
 
         for land in self.landscapeCards:
-            if land.resourcesHeld < 3:
+            if land.resourcesHeld < MAX_LAND_RESOURCES:
                 resourcesCanReceive.add(land.resource)
 
         for land in self.opponent.landscapeCards:
@@ -255,6 +438,12 @@ class Player(ABC):
                 resourcesCanGive.add(land.resource)
 
         return bool(resourcesCanReceive.intersection(resourcesCanGive))
+
+    def use_defence(self, action: ActionCardType) -> bool:
+        assert action in DEFENCE_CARDS, f'there is no defence against {action}'
+        defenceCard = DEFENCE_CARDS[action]
+
+        return self.has_card(defenceCard.value) and self.decide_use_defence(action)
 
     #TODO - refactor duplicated code
     def refill_hand(self, canSwap: bool) -> None:
@@ -290,6 +479,10 @@ class Player(ABC):
                 pile.append(removedCard)
 
     @abstractmethod
+    def wait_for_ok(self) -> None:
+        pass
+
+    @abstractmethod
     def get_card_from_choice(self, pile: Pile) -> None:
         pass
 
@@ -299,10 +492,6 @@ class Player(ABC):
 
     @abstractmethod
     def swap_one_card(self) -> bool:
-        pass
-
-    @abstractmethod
-    def play_action_card(self, card: Action) -> None:
         pass
 
     @abstractmethod
@@ -334,7 +523,7 @@ class Player(ABC):
         pass
 
     @abstractmethod
-    def grab_any_resource(self) -> None:
+    def grab_any_resource_if_possible(self) -> None:
         pass
 
     @abstractmethod
@@ -347,4 +536,40 @@ class Player(ABC):
 
     @abstractmethod
     def select_opponents_unit_to_remove(self) -> Buildable:
+        pass
+
+    @abstractmethod
+    def select_unit_to_steal(self) -> Knight | Fleet:
+        pass
+
+    @abstractmethod
+    def decide_use_defence(self, againstCard: ActionCardType) -> bool:
+        pass
+
+    @abstractmethod
+    def select_building_to_burn(self) -> Building:
+        pass
+
+    @abstractmethod
+    def select_knight_to_kill(self) -> Knight:
+        pass
+
+    @abstractmethod
+    def select_opponents_card_to_discard(self) -> Playable:
+        pass
+
+    @abstractmethod
+    def give_any_resource(self) -> None:
+        pass
+
+    @abstractmethod
+    def trade_with_caravan(self) -> None:
+        pass
+
+    @abstractmethod
+    def select_resource_to_trade_for(self) -> Optional[Resource]:
+        pass
+
+    @abstractmethod
+    def select_resource_to_purchase(self) -> Landscape:
         pass

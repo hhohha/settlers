@@ -5,9 +5,9 @@ class Button(Enum):
     OK = 0
     CANCEL = 1
     END_TURN = 2
-    UNKNOWN1 = 3
-    UNKNOWN2 = 4
-    UNKNOWN3 = 5
+    TRADE = 3
+    UNKNOWN1 = 4
+    UNKNOWN2 = 5
 
 class GameStage(Enum):
     NONE = 0
@@ -36,16 +36,16 @@ class BuildingType(Enum):
     AQUADUCT = 18
 
 class ActionCardType(Enum):
-    ALCHEMIST = 0
-    BISHOP = 1
-    ARSON = 2
-    TRADER = 3
-    CARAVAN = 4
-    WITCH = 5
-    SCOUT = 6
-    AMBUSH = 7
-    BLACK_KNIGHT = 8
-    SPY = 9
+    ALCHEMIST = 'alchemist'
+    BISHOP = 'bishop'
+    ARSON = 'arson'
+    TRADER = 'trader'
+    CARAVAN = 'caravan'
+    WITCH = 'witch'
+    SCOUT = 'scout'
+    AMBUSH = 'ambush'
+    BLACK_KNIGHT = 'black_knight'
+    SPY = 'spy'
 
 class Resource(Enum):
     GRAIN = 'grain'
