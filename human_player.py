@@ -217,7 +217,10 @@ class HumanPlayer(Player):
         return self.ok_or_cancel()
 
     def select_unit_to_steal(self) -> Knight | Fleet:
-        click = self.game.get_filtered_click((ClickFilter(board=self.game.choiceBoard, cardType=(Fleet, Knight)),))
+        click = self.game.get_filtered_click((ClickFilter(
+            board=self.game.choiceBoard,
+            cardType=(Fleet, Knight, Action)
+        ),))
         unit = click.board.get_square(click.pos)
         assert isinstance(unit, (Knight, Fleet)), f'spy attempted to steel a card of type {type(unit)}'
         return unit

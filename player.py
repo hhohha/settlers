@@ -134,7 +134,7 @@ class Player(ABC):
             newLand.pos = pos
 
     def spy_can_steal_card(self) -> bool:
-        return any(map(lambda x: isinstance(x, (Fleet, Knight)), self.opponent.cardsInHand))
+        return any(map(lambda x: isinstance(x, (Fleet, Knight, Action)), self.opponent.cardsInHand))
 
     def play_action_card_spy(self) -> None:
         self.game.display_cards_for_choice(self.opponent.cardsInHand)
@@ -264,7 +264,7 @@ class Player(ABC):
         self.refresh_hand_board()
 
 
-    def play_card_from_hand(self, card: Playable) -> None:
+    def play_card_from_hand(self, card: Playable, pos: Optional[Pos]=None) -> None:
         if isinstance(card, Action):
             self.play_action_card(card)
             return
@@ -276,7 +276,9 @@ class Player(ABC):
             return
 
         townOnly: bool = card.townOnly if isinstance(card, Building) else False
-        pos: Optional[Pos] = self.select_new_card_position(Buildable, townOnly)
+
+        if pos is None:
+            pos = self.select_new_card_position(Buildable, townOnly)
         if pos is None:
             return
 
@@ -298,14 +300,9 @@ class Player(ABC):
         elif isinstance(card, Fleet):
             self.fleetPlayed.append(card)
 
-        #self.apply_card_effect()
-
         self.cardsInHand.remove(card)
         self.refresh_hand_board()
         self.pay(card.cost)
-
-    #def apply_card_effect(self) -> None:
-    #        # TODO - implement this ??
 
     def get_advance_resource_cnt(self) -> int:
         return sum(map(lambda b: 1 if b.name in ADVANCE_BUILDINGS else 0, self.buildingsPlayed))
