@@ -12,8 +12,8 @@ from player import Player
 from util import DiceEvents, Pos, MouseClick, MILLS_EFFECTS, Cost
 from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable, Building, Buildable, SettlementSlot, \
     Knight, Fleet, Settlement
+from custom_types import Pile
 
-Pile = List[Playable]
 
 class Game:
     def __init__(self):
@@ -87,7 +87,9 @@ class Game:
             self.mainBoard.set_square(pos, MetaCard('empty'))
 
         for player in [self.player1, self.player2]:
-            self.mainBoard.set_square(player.midPos, Path(player.midPos, player))
+            path = Path(player.midPos, player)
+            self.mainBoard.set_square(player.midPos, path)
+            player.paths.append(path)
             for pos in [player.midPos.right(), player.midPos.left()]:
                 player.place_village_to_board(pos)
 
@@ -306,10 +308,8 @@ class Game:
                 if clickFilter.accepts(click):
                     return click
 
-
     def is_victory(self) -> bool:
-        return self.player1.victoryPoints >= config.VICTORY_POINTS or self.player2.victoryPoints >= config.VICTORY_POINTS
-
+        return self.player1.get_victory_points() >= config.VICTORY_POINTS or self.player2.get_victory_points() >= config.VICTORY_POINTS
 
     def is_protected_from_civil_war(self, card: Knight | Fleet) -> bool:
         for protection in config.CIVIL_WAR_PROTECTION:
@@ -334,7 +334,6 @@ class Game:
         slot.settlement = card.settlement
         card.settlement.cards.remove(card)
         card.settlement.cards.append(slot)
-
 
     def select_card(self, card: Card):
         self.bigCard.set_square(Pos(0, 0), card)

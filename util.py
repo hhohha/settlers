@@ -1,15 +1,10 @@
 from __future__ import annotations
-from typing import Union, Tuple, TYPE_CHECKING, List, Optional, Type, Callable, Dict
+from typing import Union, Tuple, TYPE_CHECKING, Dict
 from dataclasses import dataclass
 from config import RESOURCE_LIST
 from enums import DiceEvent, Resource, BuildingType, ActionCardType
-
 if TYPE_CHECKING:
     from board import Board
-    from card import Playable
-
-    Pile = List[Playable]
-
 
 MILLS_EFFECTS: Dict[Resource, BuildingType] = {
     Resource.GRAIN: BuildingType.MILL,

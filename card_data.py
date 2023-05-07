@@ -1,13 +1,11 @@
 import random
 from typing import List, TypedDict, Optional, Set
-
 import config
 from card import Landscape, Event, Playable, Fleet, Knight, Building, Action
 from enums import BuildingType, Resource, ActionCardType, EventCardType
 from player import Player
 from util import Cost
-
-Pile = List[Playable]
+from custom_types import Pile
 
 class KnightData(TypedDict):
     name: str

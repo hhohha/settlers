@@ -2,18 +2,21 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, Type
 from card import Town, Path, Village, Playable, Action, Landscape, Buildable, Building, Knight, Fleet
 from config import MAX_LAND_RESOURCES
+from custom_types import Pile
 from enums import ActionCardType, Resource
 from player import Player
 from time import sleep
 
 if TYPE_CHECKING:
     from game import Game
-    from util import Pile, Pos, Cost
+    from util import Pos, Cost
     from board import Board
 
 class ComputerPlayer(Player):
     def __init__(self, game: Game, handBoard: Board, number: int, midPos: Pos):
         super().__init__(game, handBoard, number, False, midPos)
+
+        self.hasEmptyPath = False
 
     def __str__(self) -> str:
         return 'computer'
@@ -57,9 +60,6 @@ class ComputerPlayer(Player):
         pass
 
     def pay(self, cost: Cost | int) -> None:
-        pass
-
-    def do_actions(self) -> None:
         pass
 
     def get_new_infra_position(self, infraType: Type[Village | Town | Path]) -> Optional[Pos]:
@@ -111,7 +111,7 @@ class ComputerPlayer(Player):
     def decide_browse_pile(self) -> bool:
         return False
 
-    def get_new_card_position(self, infraType: Type[Village | Path | Town | Playable], townOnly=False) -> Optional[Pos]:
+    def select_new_card_position(self, infraType: Type[Village | Path | Town | Playable], townOnly=False) -> Optional[Pos]:
         return None
 
     def select_card_to_pay(self, resource: Optional[Cost]) -> Landscape:
@@ -164,3 +164,95 @@ class ComputerPlayer(Player):
 
     def select_unit_to_steal(self) -> Knight | Fleet:
         pass
+
+    def decide_use_scout(self) -> bool:
+        return True
+
+    def select_new_land(self) -> Landscape:
+        pass
+
+    def do_actions(self) -> None:
+        while True:
+            pos = self._find_place_for_town()
+            if pos is not None:
+                self.build_infrastructure(Town)
+                continue
+
+            if not self.hasEmptyPath:
+                pos = self._find_place_for_path()
+                if pos is not None:
+                    self.build_infrastructure(Path)
+                    self.hasEmptyPath = True
+                    continue
+
+            if self.hasEmptyPath:
+                pos = self._find_place_for_village()
+                if pos is not None:
+                    self.build_infrastructure(Village)
+                    self.hasEmptyPath = False
+                    continue
+
+            cardToBuild = self._find_something_to_build()
+            if cardToBuild is not None:
+                self._build(cardToBuild)
+                continue
+
+            actionCardToPlay = self._find_action_card_to_play()
+            if actionCardToPlay is not None:
+                self._play_action_card(actionCardToPlay)
+                continue
+
+            return
+
+    ####################################################################################################################
+    #################   PRIVATE FUNCTIONS   ############################################################################
+    ####################################################################################################################
+
+    def _find_something_to_build(self) -> Optional[Buildable]:
+        pass
+
+    def _build(self, card: Buildable) -> None:
+        pass
+
+    def _find_action_card_to_play(self) -> Optional[Action]:
+        pass
+
+    def _play_action_card(self, card: Action) -> None:
+        pass
+
+    def _find_place_for_village(self) -> Optional[Pos]:
+        if not self.can_cover_cost(Village.cost):
+            return None
+
+        for path in self.paths:
+            if path.pos.x in [0, self.game.mainBoard.size.x - 1]:
+                continue
+            for pos in [path.pos.left(), path.pos.right()]:
+                card = self.game.mainBoard.get_square(pos)
+                if card is not None and card.name == 'empty':
+                    return pos
+        return None
+
+    def _find_place_for_town(self) -> Optional[Pos]:
+        if not self.can_cover_cost(Town.cost):
+            return None
+
+        for settlement in self.settlements:
+            if isinstance(settlement, Village):
+                return settlement.pos
+
+        return None
+
+    def _find_place_for_path(self) -> Optional[Pos]:
+        if not self.can_cover_cost(Path.cost):
+            return None
+
+        for settlement in self.settlements:
+            if settlement.pos.x in [0, self.game.mainBoard.size.x - 1]:
+                continue
+            for pos in [settlement.pos.left(), settlement.pos.right()]:
+                card = self.game.mainBoard.get_square(pos)
+                if card is not None and card.name == 'empty':
+                    return pos
+        return None
+

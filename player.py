@@ -28,6 +28,7 @@ class Player(ABC):
         self.fleetPlayed:  List[Fleet] = []
         self.buildingsPlayed: List[Building] = []
         self.settlements: List[Settlement] = []
+        self.paths: List[Path] = []
         self.handBoardVisible: bool = handBoardVisible
         self.midPos: Pos = midPos
         self.initialLandPos: List[Pos] = [midPos.up(), midPos.down(), midPos + Pos(2, 1), midPos + Pos(2, -1),
@@ -115,13 +116,18 @@ class Player(ABC):
         return self.cardsInHandCnt + len([True for b in self.buildingsPlayed if b.name in CARDS_INCREASING_HAND_CNT])
 
     def place_new_land(self, villagePos: Pos) -> None:
+        scoutUse: bool = 'scout' in map(lambda x: x.name, self.cardsInHand) and self.decide_use_scout()
+
         if villagePos.x > self.midPos.x:
             landPositions = villagePos.up().right(), villagePos.down().right()
         else:
             landPositions = villagePos.up().left(), villagePos.down().left()
 
         for pos in landPositions:
-            newLand = self.game.landscapeCards.pop()
+            if scoutUse:
+                newLand = self.select_new_land()
+            else:
+                newLand = self.game.landscapeCards.pop()
             self.game.mainBoard.set_square(pos, newLand)
             newLand.player = self
             self.landscapeCards.append(newLand)
@@ -270,7 +276,7 @@ class Player(ABC):
             return
 
         townOnly: bool = card.townOnly if isinstance(card, Building) else False
-        pos: Optional[Pos] = self.get_new_card_position(Buildable, townOnly)
+        pos: Optional[Pos] = self.select_new_card_position(Buildable, townOnly)
         if pos is None:
             return
 
@@ -356,7 +362,7 @@ class Player(ABC):
             print(f'you cannot afford this: {infraType}')
             return
 
-        pos: Optional[Pos] = self.get_new_card_position(infraType)
+        pos: Optional[Pos] = self.select_new_card_position(infraType)
         if pos is None:
             return
 
@@ -369,7 +375,9 @@ class Player(ABC):
         elif infraType is Town:
             self.place_town_to_board(pos)
         elif infraType is Path:
-            self.game.mainBoard.set_square(pos, Path(pos, self))
+            path = Path(pos, self)
+            self.paths.append(path)
+            self.game.mainBoard.set_square(pos, path)
         else:
             assert False, f'build infrastructure got bad infratype: {infraType}'
 
@@ -495,7 +503,7 @@ class Player(ABC):
         pass
 
     @abstractmethod
-    def get_new_card_position(self, infraType: Type[Village | Path | Town | Buildable], townOnly=False) -> Optional[Pos]:
+    def select_new_card_position(self, infraType: Type[Village | Path | Town | Buildable], townOnly=False) -> Optional[Pos]:
         pass
 
     @abstractmethod
@@ -572,4 +580,12 @@ class Player(ABC):
 
     @abstractmethod
     def select_resource_to_purchase(self) -> Landscape:
+        pass
+
+    @abstractmethod
+    def decide_use_scout(self) -> bool:
+        pass
+
+    @abstractmethod
+    def select_new_land(self) -> Landscape:
         pass

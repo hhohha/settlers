@@ -3,14 +3,8 @@ import time
 from game import Game
 
 # TODOS
-#  - implement action cards
-#      - alchemist
-#      - scout
 #  - implement AI
 #  - voluntarily remove card from board
-
-# BUGS
-#  - victory doesn't work
 
 # TEST CASES
 #  - builder - select pile collision

@@ -1,8 +1,9 @@
 from __future__ import annotations
-from typing import Optional, TYPE_CHECKING, Type
+from typing import Optional, TYPE_CHECKING, Type, List
 
 from click_filter import ClickFilter
 from config import MAX_LAND_RESOURCES
+from custom_types import Pile
 from enums import Button, DiceEvent, ActionCardType, Resource
 from player import Player
 from util import Pos, MouseClick, RESOURCE_LIST, Cost
@@ -12,7 +13,6 @@ from card import Landscape, Playable, Path, Town, Village, Settlement, Action, S
 if TYPE_CHECKING:
     from game import Game
     from board import Board
-    from util import Pile
 
 
 class HumanPlayer(Player):
@@ -222,6 +222,37 @@ class HumanPlayer(Player):
         assert isinstance(unit, (Knight, Fleet)), f'spy attempted to steel a card of type {type(unit)}'
         return unit
 
+    def toss_dice_or_alchemist(self) -> bool:
+        return self.ok_or_cancel()
+
+    def use_alchemist(self) -> int:
+        self.game.display.print_msg('choose yield')
+        click = self.game.get_filtered_click((ClickFilter(
+            board=self.game.buttons
+        ),))
+
+        self.remove_action_card(ActionCardType.ALCHEMIST)
+        return self.game.buttons.to_int(click.pos) + 1
+
+    def decide_use_scout(self) -> bool:
+        self.game.display.print_msg('will you use scout?')
+        return self.ok_or_cancel()
+
+    def select_new_land(self) -> Landscape:
+        self.game.choiceBoard.clear()
+        for card in self.game.landscapeCards:
+            self.game.choiceBoard.set_next_square(card)
+
+        click = self.game.get_filtered_click((ClickFilter(
+            board=self.game.choiceBoard,
+            cardType=Landscape
+        ),))
+
+        land = click.board.get_square(click.pos)
+        assert isinstance(land, Landscape), f'expected landscape'
+
+        return land
+
     def throw_dice(self) -> None:
         self.game.display.print_msg('click to toss event dice')
         self.wait_for_ok()
@@ -230,9 +261,20 @@ class HumanPlayer(Player):
         print(f'event: {event}')
         self.game.handle_dice_events(event)
 
-        self.game.display.print_msg('click to toss yield dice or use alchemist')
-        self.wait_for_ok()
-        diceNumber: int = self.game.throw_yield_dice()
+        diceNumber: int
+        if 'alchemist' in map(lambda x: x.name, self.cardsInHand):
+            self.game.display.print_msg('click to toss yield dice or use alchemist')
+            tossDice = self.toss_dice_or_alchemist()
+            if not tossDice:
+                self.wait_for_ok()
+                diceNumber = self.game.throw_yield_dice()
+            else:
+                diceNumber = self.use_alchemist()
+        else:
+            self.game.display.print_msg('click to toss yield dice')
+            self.wait_for_ok()
+            diceNumber = self.game.throw_yield_dice()
+
         print(f'yield: {diceNumber}')
 
         self.game.land_yield(diceNumber)
@@ -250,7 +292,7 @@ class HumanPlayer(Player):
             if card.resourcesHeld > 0 and (cost is None or cost.get(card.resource) > 0):
                 return card
 
-    def get_new_card_position(self, infraType: Type[Village | Path | Town | Buildable], townOnly=False) -> Optional[Pos]:
+    def select_new_card_position(self, infraType: Type[Village | Path | Town | Buildable], townOnly=False) -> Optional[Pos]:
         self.game.display.print_msg('choose card location')
         while True:
             click = self.game.get_filtered_click()
