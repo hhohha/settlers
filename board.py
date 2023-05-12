@@ -14,9 +14,11 @@ class Board:
         self.spacing: int = config.CARD_IMG_SPACING
 
     def to_int(self, pos: Pos) -> int:
+        assert pos < self.size, f'cannot get index of pos: {pos}'
         return pos.x + self.size.x * pos.y
 
     def to_pos(self, n: int) -> Pos:
+        assert n < len(self.squares), f'cannot get position of idx: {n}'
         return Pos(n % self.size.x, n // self.size.x)
 
     def get_square(self, pos: Pos) -> Optional[Card]:
