@@ -2,7 +2,7 @@ import random
 from typing import List, TypedDict, Optional, Set
 import config
 from card import Landscape, Event, Playable, Fleet, Knight, Building, Action
-from enums import BuildingType, Resource, ActionCardType, EventCardType
+from enums import Resource
 from player import Player
 from util import Cost
 from custom_types import Pile
@@ -21,7 +21,6 @@ class FleetData(TypedDict):
 
 class BuildingData(TypedDict):
     name: str
-    type: BuildingType
     count: int
     cost: Cost
     victory_points: int
@@ -30,13 +29,10 @@ class BuildingData(TypedDict):
 
 class ActionCardData(TypedDict):
     name: str
-    type: ActionCardType
     count: int
-
 
 class EventCardData(TypedDict):
     name: str
-    type: EventCardType
     count: int
 
 class LandscapeData(TypedDict):
@@ -83,7 +79,7 @@ class CardData:
         cards: List[Event] = []
         for eventCard in CardData.EVENT_CARD_LIST:
             for _ in range(eventCard['count']):
-                cards.append(Event(eventCard['name'], eventCard['type']))
+                cards.append(Event(eventCard['name']))
         random.shuffle(cards)
         return cards
 
@@ -127,7 +123,6 @@ class CardData:
             for _ in range(buildingData['count']):
                 cards.append(Building(
                     buildingData['name'],
-                    buildingData['type'],
                     buildingData['cost'],
                     buildingData['town_only'],
                     buildingData['victory_points'],
@@ -136,7 +131,7 @@ class CardData:
 
         for actionCardData in CardData.ACTION_CARD_LIST:
             for _ in range(actionCardData['count']):
-                cards.append(Action(actionCardData['name'], actionCardData['type']))
+                cards.append(Action(actionCardData['name']))
 
         random.shuffle(cards)
         return cards
@@ -163,47 +158,47 @@ class CardData:
     ]
 
     BUILDING_LIST: List[BuildingData] = [
-        {'name': 'warehouse', 'type': BuildingType.WAREHOUSE, 'count': 3, 'cost': Cost(brick=1, wood=1), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
-        {'name': 'mill', 'type': BuildingType.MILL, 'count': 1, 'cost': Cost(brick=1, grain=1), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
-        {'name': 'sawmill', 'type': BuildingType.SAWMILL, 'count': 1, 'cost': Cost(wood=2), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
-        {'name': 'brickyard', 'type': BuildingType.BRICKYARD, 'count': 1, 'cost': Cost(brick=1, rock=1), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
-        {'name': 'spinning_mill', 'type': BuildingType.SPINNING_MILL, 'count': 1, 'cost': Cost(brick=1, sheep=1), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
-        {'name': 'cloister', 'type': BuildingType.CLOISTER, 'count': 2, 'cost': Cost(rock=1, brick=1, wood=1), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
-        {'name': 'smithy', 'type': BuildingType.SMITHY, 'count': 1, 'cost': Cost(rock=2, wood=1), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
-        {'name': 'spa', 'type': BuildingType.SPA, 'count': 2, 'cost': Cost(brick=2, rock=1, sheep=1), 'victory_points': 1, 'trade_points': 0, 'town_only': True},
-        {'name': 'library', 'type': BuildingType.LIBRARY, 'count': 2, 'cost': Cost(rock=2, brick=1, wood=2), 'victory_points': 1, 'trade_points': 0, 'town_only': True},
-        {'name': 'colossus', 'type': BuildingType.COLOSSUS, 'count': 1, 'cost': Cost(rock=3, brick=3, grain=3), 'victory_points': 2, 'trade_points': 0, 'town_only': True},
-        {'name': 'port', 'type': BuildingType.PORT, 'count': 1, 'cost': Cost(rock=1, brick=1, sheep=1), 'victory_points': 0, 'trade_points': 1, 'town_only': True},
-        {'name': 'church', 'type': BuildingType.CHURCH, 'count': 2, 'cost': Cost(rock=2, brick=1, grain=2), 'victory_points': 1, 'trade_points': 0, 'town_only': True},
-        {'name': 'market', 'type': BuildingType.MARKET, 'count': 1, 'cost': Cost(sheep=1, grain=1), 'victory_points': 0, 'trade_points': 2, 'town_only': True},
-        {'name': 'trade_office', 'type': BuildingType.TRADE_OFFICE, 'count': 1, 'cost': Cost(sheep=2, grain=1, brick=1), 'victory_points': 0, 'trade_points': 3, 'town_only': True},
-        {'name': 'trade_guild', 'type': BuildingType.TRADE_GUILD, 'count': 1, 'cost': Cost(sheep=3, brick=2, grain=1), 'victory_points': 0, 'trade_points': 4, 'town_only': True},
-        {'name': 'mint', 'type': BuildingType.MINT, 'count': 1, 'cost': Cost(wood=2, brick=2, rock=2), 'victory_points': 0, 'trade_points': 1, 'town_only': True},
-        {'name': 'town_hall', 'type': BuildingType.TOWN_HALL, 'count': 2, 'cost': Cost(sheep=2, rock=2, brick=1), 'victory_points': 1, 'trade_points': 0, 'town_only': True},
-        {'name': 'aquaduct', 'type': BuildingType.AQUADUCT, 'count': 2, 'cost': Cost(rock=2, brick=2, wood=2), 'victory_points': 1, 'trade_points': 0, 'town_only': True}
+        {'name': 'warehouse', 'count': 3, 'cost': Cost(brick=1, wood=1), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
+        {'name': 'mill', 'count': 1, 'cost': Cost(brick=1, grain=1), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
+        {'name': 'sawmill', 'count': 1, 'cost': Cost(wood=2), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
+        {'name': 'brickyard', 'count': 1, 'cost': Cost(brick=1, rock=1), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
+        {'name': 'spinning_mill', 'count': 1, 'cost': Cost(brick=1, sheep=1), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
+        {'name': 'cloister', 'count': 2, 'cost': Cost(rock=1, brick=1, wood=1), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
+        {'name': 'smithy', 'count': 1, 'cost': Cost(rock=2, wood=1), 'victory_points': 0, 'trade_points': 0, 'town_only': False},
+        {'name': 'spa', 'count': 2, 'cost': Cost(brick=2, rock=1, sheep=1), 'victory_points': 1, 'trade_points': 0, 'town_only': True},
+        {'name': 'library', 'count': 2, 'cost': Cost(rock=2, brick=1, wood=2), 'victory_points': 1, 'trade_points': 0, 'town_only': True},
+        {'name': 'colossus', 'count': 1, 'cost': Cost(rock=3, brick=3, grain=3), 'victory_points': 2, 'trade_points': 0, 'town_only': True},
+        {'name': 'port', 'count': 1, 'cost': Cost(rock=1, brick=1, sheep=1), 'victory_points': 0, 'trade_points': 1, 'town_only': True},
+        {'name': 'church', 'count': 2, 'cost': Cost(rock=2, brick=1, grain=2), 'victory_points': 1, 'trade_points': 0, 'town_only': True},
+        {'name': 'market', 'count': 1, 'cost': Cost(sheep=1, grain=1), 'victory_points': 0, 'trade_points': 2, 'town_only': True},
+        {'name': 'trade_office', 'count': 1, 'cost': Cost(sheep=2, grain=1, brick=1), 'victory_points': 0, 'trade_points': 3, 'town_only': True},
+        {'name': 'trade_guild', 'count': 1, 'cost': Cost(sheep=3, brick=2, grain=1), 'victory_points': 0, 'trade_points': 4, 'town_only': True},
+        {'name': 'mint', 'count': 1, 'cost': Cost(wood=2, brick=2, rock=2), 'victory_points': 0, 'trade_points': 1, 'town_only': True},
+        {'name': 'town_hall', 'count': 2, 'cost': Cost(sheep=2, rock=2, brick=1), 'victory_points': 1, 'trade_points': 0, 'town_only': True},
+        {'name': 'aquaduct', 'count': 2, 'cost': Cost(rock=2, brick=2, wood=2), 'victory_points': 1, 'trade_points': 0, 'town_only': True}
     ]
 
     ACTION_CARD_LIST: List[ActionCardData] = [
-        {'name': 'alchemist', 'type': ActionCardType.ALCHEMIST, 'count': 2},
-        {'name': 'bishop', 'type': ActionCardType.BISHOP, 'count': 2},
-        {'name': 'arson', 'type': ActionCardType.ARSON, 'count': 2},
-        {'name': 'trader', 'type': ActionCardType.TRADER, 'count': 2},
-        {'name': 'caravan', 'type': ActionCardType.CARAVAN, 'count': 1},
-        {'name': 'witch', 'type': ActionCardType.WITCH, 'count': 2},
-        {'name': 'scout', 'type': ActionCardType.SCOUT, 'count': 2},
-        {'name': 'ambush', 'type': ActionCardType.AMBUSH, 'count': 1},
-        {'name': 'black_knight', 'type': ActionCardType.BLACK_KNIGHT, 'count': 3},
-        {'name': 'spy', 'type': ActionCardType.SPY, 'count': 3}
+        {'name': 'alchemist', 'count': 2},
+        {'name': 'bishop', 'count': 2},
+        {'name': 'arson', 'count': 2},
+        {'name': 'trader', 'count': 2},
+        {'name': 'caravan', 'count': 1},
+        {'name': 'witch', 'count': 2},
+        {'name': 'scout', 'count': 2},
+        {'name': 'ambush', 'count': 1},
+        {'name': 'black_knight', 'count': 3},
+        {'name': 'spy', 'count': 3}
     ]
 
     EVENT_CARD_LIST: List[EventCardData] = [
-        {'name': 'builder', 'type': EventCardType.BUILDER, 'count': 1},
-        {'name': 'civil_war', 'type': EventCardType.CIVIL_WAR, 'count': 1},
-        {'name': 'rich_year', 'type': EventCardType.RICH_YEAR, 'count': 2},
-        {'name': 'advance', 'type': EventCardType.ADVANCE, 'count': 2},
-        {'name': 'new_year', 'type': EventCardType.NEW_YEAR, 'count': 1},
-        {'name': 'conflict', 'type': EventCardType.CONFLICT, 'count': 1},
-        {'name': 'plaque', 'type': EventCardType.PLAQUE, 'count': 2}
+        {'name': 'builder', 'count': 1},
+        {'name': 'civil_war', 'count': 1},
+        {'name': 'rich_year', 'count': 2},
+        {'name': 'advance', 'count': 2},
+        {'name': 'new_year', 'count': 1},
+        {'name': 'conflict', 'count': 1},
+        {'name': 'plaque', 'count': 2}
     ]
 
     LANDSCAPE_CARD_LIST: List[LandscapeData] = [

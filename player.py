@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, List, Dict, Optional, Type, Set
 from card import Action, Buildable, Building, Playable, SettlementSlot, Village, Town, Path, Knight, Fleet, Settlement
 from config import BROWSE_DISCOUNT_BUILDINGS, CARDS_INCREASING_HAND_CNT, STOLEN_AMBUSH_RESOURCES, ADVANCE_BUILDINGS, \
     MAX_LAND_RESOURCES
-from enums import Resource, ActionCardType
+from enums import Resource
 from util import Pos, Cost, DEFENCE_CARDS
 
 if TYPE_CHECKING:
@@ -71,6 +71,9 @@ class Player(ABC):
         card.pos = self.initialLandPos.pop()
         self.landscapeCards.append(card)
         self.game.mainBoard.set_square(card.pos, card)
+
+    def have_card_in_hand(self, name: str) -> bool:
+        return name in map(lambda n: n.name, self.cardsInHand)
 
     def has_browse_discount(self) -> bool:
         for cardName in BROWSE_DISCOUNT_BUILDINGS:
@@ -152,15 +155,15 @@ class Player(ABC):
     def has_card(self, name: str) -> bool:
         return any(map(lambda x: x.name == name, self.cardsInHand))
 
-    def remove_action_card(self, cardType: ActionCardType) -> None:
+    def remove_action_card(self, cardName: str) -> None:
         for card in self.cardsInHand:
-            if isinstance(card, Action) and card.actionType == cardType:
+            if isinstance(card, Action) and card.name == cardName:
                 self.cardsInHand.remove(card)
                 return
-        assert False, f'player doesn\'t have action card {cardType}'
+        assert False, f'player doesn\'t have action card {cardName}'
 
     def play_action_card_arson(self) -> None:
-        winner = self.action_card_get_toss_winner(ActionCardType.ARSON)
+        winner = self.action_card_get_toss_winner('arson')
         if not winner.opponent.buildingsPlayed:
             print(f'cannot burn anything')
             return
@@ -170,7 +173,7 @@ class Player(ABC):
 
     def take_back_to_hand(self, card: Buildable):
         assert card.pos is not None and card.settlement is not None
-        slot = SettlementSlot(card.pos)
+        slot = SettlementSlot(card.pos, self)
 
         slot.settlement = card.settlement
         slot.settlement.cards.append(slot)
@@ -189,12 +192,12 @@ class Player(ABC):
         self.game.mainBoard.set_square(card.pos, slot)
 
     def play_action_card_ambush(self) -> None:
-        winner = self.action_card_get_toss_winner(ActionCardType.AMBUSH)
+        winner = self.action_card_get_toss_winner('ambush')
         for _ in range(2):
             winner.grab_any_resource_if_possible()
 
     def play_action_card_black_knight(self) -> None:
-        winner = self.action_card_get_toss_winner(ActionCardType.BLACK_KNIGHT)
+        winner = self.action_card_get_toss_winner('black_knight')
 
         if not winner.opponent.knightsPlayed:
             print(f'black knight cannot kill anyone')
@@ -203,15 +206,15 @@ class Player(ABC):
         killedKnight: Knight = winner.select_knight_to_kill()
         winner.opponent.take_back_to_hand(killedKnight)
 
-    def action_card_get_toss_winner(self, actionType: ActionCardType) -> Player:
-        assert actionType in DEFENCE_CARDS, f'no defence against {actionType.value}'
+    def action_card_get_toss_winner(self, actionName: str) -> Player:
+        assert actionName in DEFENCE_CARDS, f'no defence against {actionName}'
 
-        if self.opponent.use_defence(actionType):
-            self.opponent.remove_action_card(DEFENCE_CARDS[actionType])
-            print(f'defence against {actionType.value} activated')
+        if self.opponent.use_defence(actionName):
+            self.opponent.remove_action_card(DEFENCE_CARDS[actionName])
+            print(f'defence against {actionName} activated')
             actionSuccessFrom6 = 2
         else:
-            print(f'defence against {actionType.value} NOT activated')
+            print(f'defence against {actionName} NOT activated')
             actionSuccessFrom6 = 5
 
         self.game.display.print_msg('press ok to toss')
@@ -244,17 +247,17 @@ class Player(ABC):
         # following action cards can be played only at certain specific situation (not here):
         # alchemist, bishop, witch, scout
 
-        if card.actionType == ActionCardType.SPY:
+        if card.name == 'spy':
             self.play_action_card_spy()
-        elif card.actionType == ActionCardType.ARSON:
+        elif card.name == 'arson':
             self.play_action_card_arson()
-        elif card.actionType == ActionCardType.AMBUSH:
+        elif card.name == 'ambush':
             self.play_action_card_ambush()
-        elif card.actionType == ActionCardType.TRADER:
+        elif card.name == 'trader':
             self.play_action_card_trader()
-        elif card.actionType == ActionCardType.CARAVAN:
+        elif card.name == 'caravan':
             self.play_action_card_caravan()
-        elif card.actionType == ActionCardType.BLACK_KNIGHT:
+        elif card.name == 'black_knight':
             self.play_action_card_black_knight()
         else:
             print(f'action card {card.name} cannot be played now')
@@ -383,7 +386,7 @@ class Player(ABC):
         self.game.mainBoard.set_square(pos, newVillage)
         self.settlements.append(newVillage)
         for p in [pos.up(), pos.down()]:
-            slot = SettlementSlot(p)
+            slot = SettlementSlot(p, self)
             self.game.mainBoard.set_square(p, slot)
             slot.settlement = newVillage
             newVillage.cards.append(slot)
@@ -400,7 +403,7 @@ class Player(ABC):
             slot.settlement = newTown
 
         for p in [pos.up(2), pos.down(2)]:
-            slot = SettlementSlot(p)
+            slot = SettlementSlot(p, self)
             self.game.mainBoard.set_square(p, slot)
             slot.settlement = newTown
             newTown.cards.append(slot)
@@ -444,11 +447,11 @@ class Player(ABC):
 
         return bool(resourcesCanReceive.intersection(resourcesCanGive))
 
-    def use_defence(self, action: ActionCardType) -> bool:
+    def use_defence(self, action: str) -> bool:
         assert action in DEFENCE_CARDS, f'there is no defence against {action}'
         defenceCard = DEFENCE_CARDS[action]
 
-        return self.has_card(defenceCard.value) and self.decide_use_defence(action)
+        return self.has_card(defenceCard) and self.decide_use_defence(action)
 
     #TODO - refactor duplicated code
     def refill_hand(self, canSwap: bool) -> None:
@@ -548,7 +551,7 @@ class Player(ABC):
         pass
 
     @abstractmethod
-    def decide_use_defence(self, againstCard: ActionCardType) -> bool:
+    def decide_use_defence(self, againstCard: str) -> bool:
         pass
 
     @abstractmethod

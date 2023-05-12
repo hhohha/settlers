@@ -1,7 +1,7 @@
 from __future__ import annotations
 from abc import ABC
 from typing import Optional, List, TYPE_CHECKING
-from enums import Resource, BuildingType, ActionCardType, EventCardType
+from enums import Resource
 from util import Cost, Pos
 if TYPE_CHECKING:
     from player import Player
@@ -19,9 +19,10 @@ class MetaCard(Card):
         super().__init__(name)
 
 class SettlementSlot(Card):
-    def __init__(self, pos: Pos):
+    def __init__(self, pos: Pos, player: Player):
         super().__init__('highlighted')
         self.pos = pos
+        self.player = player
         self.settlement: Optional[Settlement] = None
 
 class Landscape(Card):
@@ -33,7 +34,6 @@ class Landscape(Card):
         self.pos: Optional[Pos] = None
         self.player: Optional[Player] = None
         self.settlements: List[Settlement] = []
-        #self.protectedByWarehouse: bool = False
 
 class Path(Card):
     def __init__(self, pos: Pos, player: Player):
@@ -63,9 +63,8 @@ class Town(Settlement):
     cost: Cost = Cost(rock=3, grain=2)
 
 class Event(Card):
-    def __init__(self, name: str, eventType: EventCardType):
+    def __init__(self, name: str):
         super().__init__(name)
-        self.eventType: EventCardType = eventType
 
 class Playable(Card, ABC):
     def __init__(self, name: str):
@@ -73,9 +72,8 @@ class Playable(Card, ABC):
         self.player: Optional[Player] = None
 
 class Action(Playable):
-    def __init__(self, name: str, actionType: ActionCardType):
+    def __init__(self, name: str):
         super().__init__(name)
-        self.actionType = actionType
 
 class Buildable(Playable, ABC):
     def __init__(self, name: str, cost: Cost):
@@ -85,13 +83,11 @@ class Buildable(Playable, ABC):
         self.cost: Cost = cost
 
 class Building(Buildable):
-    def __init__(self, name: str, buildingType: BuildingType, cost: Cost, townOnly: bool, victoryPoints: int, tradePoints: int):
+    def __init__(self, name: str, cost: Cost, townOnly: bool, victoryPoints: int, tradePoints: int):
         super().__init__(name, cost)
-        self.settlement: Optional[Settlement] = None
         self.townOnly: bool = townOnly
         self.victoryPoints: int = victoryPoints
         self.tradePoints: int = tradePoints
-        self.buildingType: BuildingType = buildingType
 
 class Knight(Buildable):
     def __init__(self, name: str, cost: Cost, tournamentStrength: int, battleStrength: int):

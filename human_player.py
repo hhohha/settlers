@@ -4,7 +4,7 @@ from typing import Optional, TYPE_CHECKING, Type, List
 from click_filter import ClickFilter
 from config import MAX_LAND_RESOURCES
 from custom_types import Pile
-from enums import Button, DiceEvent, ActionCardType, Resource
+from enums import Button, DiceEvent, Resource
 from player import Player
 from util import Pos, MouseClick, RESOURCE_LIST, Cost
 from card import Landscape, Playable, Path, Town, Village, Settlement, Action, SettlementSlot, Buildable, Knight, Fleet, \
@@ -212,8 +212,8 @@ class HumanPlayer(Player):
             if self.button_clicked(click) == Button.OK.value:
                 return
 
-    def decide_use_defence(self, againstCard: ActionCardType) -> bool:
-        self.game.display.print_msg(f'will you defend against {againstCard.value}?')
+    def decide_use_defence(self, againstCard: str) -> bool:
+        self.game.display.print_msg(f'will you defend against {againstCard}?')
         return self.ok_or_cancel()
 
     def select_unit_to_steal(self) -> Knight | Fleet:
@@ -234,7 +234,7 @@ class HumanPlayer(Player):
             board=self.game.buttons
         ),))
 
-        self.remove_action_card(ActionCardType.ALCHEMIST)
+        self.remove_action_card('alchemist')
         return self.game.buttons.to_int(click.pos) + 1
 
     def decide_use_scout(self) -> bool:

@@ -1,9 +1,11 @@
 from __future__ import annotations
+
+from copy import deepcopy
 from typing import TYPE_CHECKING, Optional, Type
 from card import Town, Path, Village, Playable, Action, Landscape, Buildable, Building, Knight, Fleet
-from config import MAX_LAND_RESOURCES
+from config import MAX_LAND_RESOURCES, RESOURCE_LIST
 from custom_types import Pile
-from enums import ActionCardType, Resource
+from enums import Resource
 from player import Player
 from time import sleep
 
@@ -136,7 +138,7 @@ class ComputerPlayer(Player):
 
         assert False, 'opponent has no knight or fleet to remove'
 
-    def decide_use_defence(self, againstCard: ActionCardType) -> bool:
+    def decide_use_defence(self, againstCard: str) -> bool:
         return True
 
     def select_building_to_burn(self) -> Building:
@@ -198,18 +200,18 @@ class ComputerPlayer(Player):
                 self.play_card_from_hand(actionCardToPlay)
                 continue
 
-            if self.can_cover_cost_with_trade(Town.cost) and self._find_place_for_town() is not None:
+            if self._can_cover_cost_with_trade(Town.cost) and self._find_place_for_town() is not None:
                 self.trade_to_cover_cost(Town.cost)
                 self.build_infrastructure(Town)
                 continue
 
-            if not self.hasEmptyPath and self.can_cover_cost_with_trade(Path.cost) and self._find_place_for_path() is not None:
+            if not self.hasEmptyPath and self._can_cover_cost_with_trade(Path.cost) and self._find_place_for_path() is not None:
                 self.trade_to_cover_cost(Path.cost)
                 self.build_infrastructure(Path)
                 self.hasEmptyPath = True
                 continue
 
-            if self.hasEmptyPath and self.can_cover_cost_with_trade(Village.cost) and self._find_place_for_village() is not None:
+            if self.hasEmptyPath and self._can_cover_cost_with_trade(Village.cost) and self._find_place_for_village() is not None:
                 self.trade_to_cover_cost(Village.cost)
                 self.build_infrastructure(Village)
                 self.hasEmptyPath = False
@@ -228,6 +230,75 @@ class ComputerPlayer(Player):
     ####################################################################################################################
     #################   PRIVATE FUNCTIONS   ############################################################################
     ####################################################################################################################
+
+    def _can_trade_resources_with_opponent(self, cost: Cost) -> Cost:
+        opponentResources = self.opponent.get_resources_available()
+        resCost = Cost()
+        for resource in RESOURCE_LIST:
+            resCost.set(resource, min(cost.get(resource), opponentResources.get(resource) > 0))
+        return resCost
+
+    def _choose_what_to_pay_trader(self) -> Resource:
+        pass
+
+    def _choose_what_to_pay_caravan(self) -> Resource:
+        pass
+
+    def _can_cover_cost_with_trade(self, cost: Cost) -> bool:
+        if self.can_cover_cost(cost):
+            return True
+
+        # step 1 - what can cover by myself
+        resourcesAvail: Cost = self.get_resources_available()
+        missing: int = 0
+        for resource in RESOURCE_LIST:
+            diff = resourcesAvail.get(resource) - cost.get(resource)
+            if diff >= 0:
+                resourcesAvail.take(resource, diff)
+                cost.take(resource, diff)
+            else:
+                resourcesAvail.set(resource, 0)
+                missing -= diff
+                cost.take(resource, -diff)
+
+        # step 2 - what can I cover with trader
+        if self.have_card_in_hand('trader') and resourcesAvail.total() > 0:
+            tradable = self._can_trade_resources_with_opponent(deepcopy(cost))
+            if tradable.total() > 0:
+                cost.take_any(max(tradable.total(), 2, cost.total()))
+                resourcesAvail.take(self._choose_what_to_pay_trader())
+
+        if cost.is_zero():
+            return True
+
+        wildcardResources = 0
+        # step 3 - what can I cover with mint
+        if 'mint' in map(lambda x: x.name, self.buildingsPlayed):
+            wildcardResources += resourcesAvail.get(Resource.GOLD)
+            resourcesAvail.set(Resource.GOLD, 0)
+
+        # step 4 - what can I cover with caravan
+        if self.have_card_in_hand('caravan') and resourcesAvail.total() > 0:
+            cost.take_any(max(2, cost.total()))
+            resourcesAvail.take(self._choose_what_to_pay_caravan())
+
+        if cost.is_zero():
+            return True
+
+        # step 5 - what can I cover with fleets
+        for fleet in self.fleetPlayed:
+            r = resourcesAvail.get(fleet.affectedResource)
+            if r >= 2 and cost.get(fleet.affectedResource) > 0:
+                costToTake = max(r // 2, cost.get(fleet.affectedResource))
+                cost.take(fleet.affectedResource, costToTake)
+                resourcesAvail.take(fleet.affectedResource, costToTake * 2)
+
+        if cost.is_zero():
+            return True
+
+        # step 6 - what can I cover with basic trade 3:1
+
+
 
     def _find_something_to_build(self) -> Optional[Buildable]:
         for card in self.cardsInHand:

@@ -2,16 +2,16 @@ from __future__ import annotations
 from typing import Union, Tuple, TYPE_CHECKING, Dict
 from dataclasses import dataclass
 from config import RESOURCE_LIST
-from enums import DiceEvent, Resource, BuildingType, ActionCardType
+from enums import DiceEvent, Resource
 if TYPE_CHECKING:
     from board import Board
 
-MILLS_EFFECTS: Dict[Resource, BuildingType] = {
-    Resource.GRAIN: BuildingType.MILL,
-    Resource.BRICK: BuildingType.BRICKYARD,
-    Resource.ROCK: BuildingType.STEEL_MILL,
-    Resource.SHEEP: BuildingType.SPINNING_MILL,
-    Resource.WOOD: BuildingType.SAWMILL
+MILLS_EFFECTS: Dict[Resource, str] = {
+    Resource.GRAIN: 'mill',
+    Resource.BRICK: 'brickyard',
+    Resource.ROCK: 'steel_mill',
+    Resource.SHEEP: 'spinning_mill',
+    Resource.WOOD: 'sawmill'
 }
 
 @dataclass(frozen=False)
@@ -26,8 +26,12 @@ class Cost:
     def get(self, resource: Resource) -> int:
         return getattr(self, resource.value)
 
-    def take(self, resource: Resource) -> None:
-        setattr(self, resource.value, self.get(resource) - 1)
+    def set(self, resource: Resource, n: int) -> None:
+        setattr(self, resource.value, n)
+
+    def take(self, resource: Resource, n: int=1) -> None:
+        assert self.get(resource) >= n, f'cannot take {n} of resource {resource}'
+        self.set(resource, self.get(resource) - n)
 
     def __ge__ (self, other) -> bool:
         return all([getattr(self, resource) >= getattr(other, resource) for resource in RESOURCE_LIST])
@@ -108,8 +112,8 @@ DiceEvents: Dict[int, DiceEvent] = {
     6: DiceEvent.CARD_EVENT
 }
 
-DEFENCE_CARDS: Dict[ActionCardType, ActionCardType] = {
-    ActionCardType.ARSON: ActionCardType.BISHOP,
-    ActionCardType.BLACK_KNIGHT: ActionCardType.WITCH,
-    ActionCardType.AMBUSH: ActionCardType.BISHOP
+DEFENCE_CARDS: Dict[str, str] = {
+    'arson': 'bishop',
+    'black_knight': 'witch',
+    'ambush' : 'bishop'
 }

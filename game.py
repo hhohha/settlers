@@ -1,10 +1,10 @@
 import random
-from typing import List, Optional, Tuple, Set, Iterator
+from typing import List, Optional, Tuple, Iterator
 from board import Board
 from click_filter import ClickFilter
 from computer_player import ComputerPlayer
 from display_handler import DisplayHandler
-from enums import DiceEvent, EventCardType, Resource
+from enums import DiceEvent, Resource
 from card_data import CardData
 from human_player import HumanPlayer
 import config
@@ -210,19 +210,19 @@ class Game:
         self.eventCards.append(event)
         print(f'card event: {event.name}')
 
-        if event.eventType == EventCardType.BUILDER:
+        if event.name == 'builder':
             self.card_event_builder()
-        elif event.eventType == EventCardType.CIVIL_WAR:
+        elif event.name == 'civil_war':
             self.card_event_civil_war()
-        elif event.eventType == EventCardType.RICH_YEAR:
+        elif event.name == 'rich_year':
             self.card_event_rich_year()
-        elif event.eventType == EventCardType.ADVANCE:
+        elif event.name == 'advance':
             self.card_event_advance()
-        elif event.eventType == EventCardType.NEW_YEAR:
+        elif event.name == 'new_year':
             self.card_event_new_year()
-        elif event.eventType == EventCardType.CONFLICT:
+        elif event.name == 'conflict':
             self.card_event_conflict()
-        elif event.eventType == EventCardType.PLAQUE:
+        elif event.name == 'plaque':
             self.card_event_plaque()
         else:
             assert False, f'unknown card event: {event}'
@@ -328,8 +328,8 @@ class Game:
         return False
 
     def remove_card_from_board(self, card: Buildable) -> None:
-        assert card.pos is not None and card.settlement is not None
-        slot = SettlementSlot(card.pos)
+        assert card.pos is not None and card.settlement is not None and card.player is not None
+        slot = SettlementSlot(card.pos, card.player)
         self.mainBoard.set_square(card.pos, slot)
         slot.settlement = card.settlement
         card.settlement.cards.remove(card)
@@ -380,7 +380,7 @@ class Game:
         buildingNeeded = MILLS_EFFECTS[card.resource]
         # TODO this double isinstance is ugly - improve it somehow
         buildingsAvailable = filter(lambda b: isinstance(b, Building), self.get_land_neighbors(card))
-        return 2 if buildingNeeded in map(lambda b: isinstance(b, Building) and b.buildingType,
+        return 2 if buildingNeeded in map(lambda b: isinstance(b, Building) and b.name,
                                           buildingsAvailable) else 1
 
     def land_yield(self, number: int):
