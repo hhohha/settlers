@@ -68,9 +68,7 @@ class HumanPlayer(Player):
 
     def get_card_from_choice(self, pile: Pile) -> None:
         selectedCardIdx: Optional[int] = None
-        self.game.choiceBoard.clear()
-        for idx, card in enumerate(pile):
-            self.game.choiceBoard.set_next_square(card)
+        self.game.display_cards_on_board(pile, self.game.choiceBoard)
 
         while True:
             click: MouseClick = self.game.display.get_mouse_click()
@@ -242,9 +240,7 @@ class HumanPlayer(Player):
         return self.ok_or_cancel()
 
     def select_new_land(self) -> Landscape:
-        self.game.choiceBoard.clear()
-        for card in self.game.landscapeCards:
-            self.game.choiceBoard.set_next_square(card)
+        self.game.display_cards_on_board(self.game.landscapeCards, self.game.choiceBoard)
 
         click = self.game.get_filtered_click((ClickFilter(
             board=self.game.choiceBoard,

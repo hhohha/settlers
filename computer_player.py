@@ -262,7 +262,7 @@ class ComputerPlayer(Player):
                 cost.take(resource, -diff)
 
         # step 2 - what can I cover with trader
-        if self.have_card_in_hand('trader') and resourcesAvail.total() > 0:
+        if self.card_in_hand('trader') and resourcesAvail.total() > 0:
             tradable = self._can_trade_resources_with_opponent(deepcopy(cost))
             if tradable.total() > 0:
                 cost.take_any(max(tradable.total(), 2, cost.total()))
@@ -278,7 +278,7 @@ class ComputerPlayer(Player):
             resourcesAvail.set(Resource.GOLD, 0)
 
         # step 4 - what can I cover with caravan
-        if self.have_card_in_hand('caravan') and resourcesAvail.total() > 0:
+        if self.card_in_hand('caravan') and resourcesAvail.total() > 0:
             cost.take_any(max(2, cost.total()))
             resourcesAvail.take(self._choose_what_to_pay_caravan())
 

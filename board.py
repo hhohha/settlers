@@ -29,6 +29,7 @@ class Board:
         self.editedSquares.append(pos)
 
     def refresh_square(self, pos: Pos) -> None:
+        assert pos < self.size, f'cannot refresh position {pos}, out of board'
         self.editedSquares.append(pos)
 
     def clear_square(self, pos: Pos) -> None:
@@ -38,13 +39,6 @@ class Board:
     def set_top_left(self, pos: Pos):
         self.topLeft = pos
         self.bottomRight = self.topLeft + (self.squareSize + 2 * self.spacing) * self.size
-
-    def set_next_square(self, card: Card) -> None:
-        for idx, square in enumerate(self.squares):
-            if square is None or square.name == 'empty':
-                self.set_square(self.to_pos(idx), card)
-                return
-        raise ValueError('no empty square')
 
     def get_edited_squares(self):
         while self.editedSquares:

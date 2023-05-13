@@ -3,6 +3,8 @@ import copy
 from abc import ABC, abstractmethod
 from random import randint
 from typing import TYPE_CHECKING, List, Dict, Optional, Type, Set
+
+import config
 from card import Action, Buildable, Building, Playable, SettlementSlot, Village, Town, Path, Knight, Fleet, Settlement
 from config import BROWSE_DISCOUNT_BUILDINGS, CARDS_INCREASING_HAND_CNT, STOLEN_AMBUSH_RESOURCES, ADVANCE_BUILDINGS, \
     MAX_LAND_RESOURCES
@@ -21,7 +23,7 @@ class Player(ABC):
         self.handBoard = handBoard
         self.number: int = number
         self.victoryPoints = 0
-        self.cardsInHandCnt: int = 3
+        self.cardsInHandCnt: int = config.STARTING_HAND_CARD_CNT
         self.cardsInHand: List[Playable] = []
         self.landscapeCards: List[Landscape] = []
         self.knightsPlayed: List[Knight] = []
@@ -31,11 +33,17 @@ class Player(ABC):
         self.paths: List[Path] = []
         self.handBoardVisible: bool = handBoardVisible
         self.midPos: Pos = midPos
-        self.initialLandPos: List[Pos] = [midPos.up(), midPos.down(), midPos + Pos(2, 1), midPos + Pos(2, -1),
-                                          midPos + Pos(-2, 1), midPos + Pos(-2, -1)]
+        self.initialLandPos: List[Pos] = [
+            self.midPos.up(),
+            self.midPos.down(),
+            self.midPos.up().right(2),
+            self.midPos.down().right(2),
+            self.midPos.up().left(2),
+            self.midPos.down().left(2)
+        ]
 
     def get_victory_points(self) -> int:
-        points = 0
+        points: int = 0
         points += sum(map(lambda s: 2 if isinstance(s, Town) else 1, self.settlements))
         points += sum(map(lambda b: b.victoryPoints, self.buildingsPlayed))
         if self.get_trade_strength() > self.opponent.get_trade_strength():
@@ -72,7 +80,7 @@ class Player(ABC):
         self.landscapeCards.append(card)
         self.game.mainBoard.set_square(card.pos, card)
 
-    def have_card_in_hand(self, name: str) -> bool:
+    def card_in_hand(self, name: str) -> bool:
         return name in map(lambda n: n.name, self.cardsInHand)
 
     def has_browse_discount(self) -> bool:
@@ -93,19 +101,13 @@ class Player(ABC):
             strength += len(self.knightsPlayed)
         return strength
 
-    def take_card(self, card: Playable) -> None:
-        self.cardsInHand.append(card)
-        self.game.player1Board.set_next_square(card)
-
     def add_card(self, card: Playable):
         if len(self.cardsInHand) >= self.get_hand_cards_cnt():
             raise ValueError(f'cannot take a card, already at max')
         self.cardsInHand.append(card)
 
     def refresh_hand_board(self):
-        self.handBoard.clear()
-        for card in self.cardsInHand:
-            self.handBoard.set_next_square(card)
+        self.game.display_cards_on_board(self.cardsInHand, self.handBoard)
 
     def is_next_to(self, pos: Pos, cardType: Type) -> bool:
         posRight, posLeft = pos.right(), pos.left()
@@ -140,7 +142,7 @@ class Player(ABC):
         return any(map(lambda x: isinstance(x, (Fleet, Knight, Action)), self.opponent.cardsInHand))
 
     def play_action_card_spy(self) -> None:
-        self.game.display_cards_for_choice(self.opponent.cardsInHand)
+        self.game.display_cards_on_board(self.opponent.cardsInHand, self.game.choiceBoard)
         if not self.spy_can_steal_card():
             print('opponent has no unit to steal')
             self.wait_for_ok()

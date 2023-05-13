@@ -172,7 +172,7 @@ class Game:
 
         pile = winner.select_pile()
         for _ in range(2):
-            self.display_cards_for_choice(winner.opponent.cardsInHand)
+            self.display_cards_on_board(winner.opponent.cardsInHand, self.choiceBoard)
             card: Playable = winner.select_opponents_card_to_discard()
             winner.opponent.cardsInHand.remove(card)
             pile.append(card)
@@ -338,10 +338,10 @@ class Game:
     def select_card(self, card: Card):
         self.bigCard.set_square(Pos(0, 0), card)
 
-    def display_cards_for_choice(self, pile: Pile) -> None:
-        self.choiceBoard.clear()
-        for card in pile:
-            self.choiceBoard.set_next_square(card)
+    def display_cards_on_board(self, pile: Pile | List[Landscape], board: Board) -> None:
+        board.clear()
+        for idx, card in enumerate(pile):
+            board.set_square(board.to_pos(idx), card)
 
     def throw_yield_dice(self) -> int:
         return random.randint(1, 6)

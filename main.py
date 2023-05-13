@@ -7,7 +7,7 @@ from game import Game
 #  - voluntarily remove card from board
 
 # COVERED BY UNIT TESTS
-#  - board.py
+#  - board.py                 OK
 #  - card_data.py
 #  - card.py                  OK
 #  - click_filter.py
