@@ -145,7 +145,7 @@ class Player(ABC):
     def play_action_card_spy(self) -> None:
         self.game.display_cards_on_board(self.opponent.cardsInHand, self.game.choiceBoard)
         if not self.spy_can_steal_card():
-            print('opponent has no unit to steal')
+            self.game.display.print_msg('opponent has no unit to steal')
             self.wait_for_ok()
             return
 
@@ -160,24 +160,31 @@ class Player(ABC):
             if isinstance(card, Action) and card.name == cardName:
                 self.cardsInHand.remove(card)
                 return
-        assert False, f'player doesn\'t have action card {cardName}'
+        assert False, f'player does not have action card {cardName}'
 
     def play_action_card_arson(self) -> None:
         winner = self.action_card_get_toss_winner('arson')
         if not winner.opponent.buildingsPlayed:
-            print(f'cannot burn anything')
+            self.game.display.print_msg(f'cannot burn anything')
+            self.wait_for_ok()
             return
 
         burntBuilding: Building = winner.select_building_to_burn()
         winner.opponent.take_back_to_hand(burntBuilding)
 
-    def take_back_to_hand(self, card: Buildable):
-        assert card.pos is not None and card.settlement is not None
-        slot = SettlementSlot(card.pos, self)
+    ####################################################################################################################
+    ####################################################################################################################
+    ####################################################################################################################
 
+    def take_back_to_hand(self, card: Buildable):
+        assert card.pos is not None and card.settlement is not None and card.player is self
+
+        slot = SettlementSlot(card.pos, self)
         slot.settlement = card.settlement
         slot.settlement.cards.append(slot)
         slot.settlement.cards.remove(card)
+
+        card.settlement, card.player, card.pos = None, None, None
 
         if isinstance(card, Building):
             self.buildingsPlayed.remove(card)
@@ -186,11 +193,9 @@ class Player(ABC):
         elif isinstance(card, Fleet):
             self.fleetPlayed.remove(card)
 
-        card.settlement = None
-        card.player = None
         self.cardsInHand.append(card)
         self.refresh_hand_board()
-        self.game.mainBoard.set_square(card.pos, slot)
+        self.game.mainBoard.set_square(slot.pos, slot)
 
     def play_action_card_ambush(self) -> None:
         winner = self.action_card_get_toss_winner('ambush')
