@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Union, Tuple, TYPE_CHECKING, Dict
+from typing import Union, Tuple, TYPE_CHECKING, Dict, Type
 from dataclasses import dataclass
 from config import RESOURCE_LIST
 from enums import DiceEvent, Resource
@@ -13,6 +13,12 @@ MILLS_EFFECTS: Dict[Resource, str] = {
     Resource.SHEEP: 'spinning_mill',
     Resource.WOOD: 'sawmill'
 }
+
+def is_next_to(board: Board, pos: Pos, cardType: Type) -> bool:
+    if pos.x + 1 < board.size.x and isinstance(board.get_square(pos.right()), cardType):
+        return True
+
+    return pos.x - 1 >= 0 and isinstance(board.get_square(pos.left()), cardType)
 
 @dataclass(frozen=False)
 class Cost:

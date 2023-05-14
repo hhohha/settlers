@@ -23,7 +23,7 @@ class Player(ABC):
         self.handBoard = handBoard
         self.number: int = number
         self.victoryPoints = 0
-        self.cardsInHandCnt: int = config.STARTING_HAND_CARD_CNT
+        self.cardsInHandDefaultCnt: int = config.STARTING_HAND_CARD_CNT
         self.cardsInHand: List[Playable] = []
         self.landscapeCards: List[Landscape] = []
         self.knightsPlayed: List[Knight] = []
@@ -41,6 +41,9 @@ class Player(ABC):
             self.midPos.up().left(2),
             self.midPos.down().left(2)
         ]
+    ####################################################################################################################
+    #################   CALCULATING FUNCTION   #########################################################################
+    ####################################################################################################################
 
     def get_victory_points(self) -> int:
         points: int = 0
@@ -75,11 +78,6 @@ class Player(ABC):
         else:
             return self.get_resources_available().total() >= cost
 
-    def setup_land_card(self, card: Landscape):
-        card.pos = self.initialLandPos.pop()
-        self.landscapeCards.append(card)
-        self.game.mainBoard.set_square(card.pos, card)
-
     def card_in_hand(self, name: str) -> bool:
         return name in map(lambda n: n.name, self.cardsInHand)
 
@@ -92,35 +90,33 @@ class Player(ABC):
     def get_tournament_strength(self) -> int:
         return sum(map(lambda k: k.tournamentStrength, self.knightsPlayed))
 
-    def get_trade_strength(self):
+    def get_trade_strength(self) -> int:
         return sum(map(lambda b: b.tradePoints, self.buildingsPlayed)) + sum(map(lambda f: f.tradePoints, self.fleetPlayed))
 
-    def get_battle_strength(self):
+    def get_battle_strength(self) -> int:
         strength = sum(map(lambda k: k.battleStrength, self.knightsPlayed))
         if 'smithy' in map(lambda b: b.name, self.buildingsPlayed):
             strength += len(self.knightsPlayed)
         return strength
 
-    def add_card(self, card: Playable):
-        if len(self.cardsInHand) >= self.get_hand_cards_cnt():
-            raise ValueError(f'cannot take a card, already at max')
-        self.cardsInHand.append(card)
-
-    def refresh_hand_board(self):
-        self.game.display_cards_on_board(self.cardsInHand, self.handBoard)
-
-    def is_next_to(self, pos: Pos, cardType: Type) -> bool:
-        posRight, posLeft = pos.right(), pos.left()
-        b = self.game.mainBoard
-        if posRight.x < b.size.x and isinstance(b.get_square(posRight), cardType):
-            return True
-
-        return posLeft.x >= 0 and isinstance(b.get_square(posLeft), cardType)
-
     def get_hand_cards_cnt(self) -> int:
-        return self.cardsInHandCnt + len([True for b in self.buildingsPlayed if b.name in CARDS_INCREASING_HAND_CNT])
+        return self.cardsInHandDefaultCnt + len([True for b in self.buildingsPlayed if b.name in CARDS_INCREASING_HAND_CNT])
+
+    def spy_can_steal_card(self) -> bool:
+        return any(map(lambda x: isinstance(x, (Fleet, Knight, Action)), self.opponent.cardsInHand))
+
+    ####################################################################################################################
+    #################   CARD PLACEMENT         #########################################################################
+    ####################################################################################################################
+
+    def setup_initial_land_card(self, card: Landscape) -> None:
+        assert self.initialLandPos, 'cannot setup any more land'
+        card.pos = self.initialLandPos.pop()
+        self.landscapeCards.append(card)
+        self.game.mainBoard.set_square(card.pos, card)
 
     def place_new_land(self, villagePos: Pos) -> None:
+        assert villagePos.y == self.midPos.y and villagePos.x != self.midPos.x, 'invalid village position'
         scoutUse: bool = 'scout' in map(lambda x: x.name, self.cardsInHand) and self.decide_use_scout()
 
         if villagePos.x > self.midPos.x:
@@ -131,6 +127,7 @@ class Player(ABC):
         for pos in landPositions:
             if scoutUse:
                 newLand = self.select_new_land()
+                self.game.landscapeCards.remove(newLand)
             else:
                 newLand = self.game.landscapeCards.pop()
             self.game.mainBoard.set_square(pos, newLand)
@@ -138,8 +135,12 @@ class Player(ABC):
             self.landscapeCards.append(newLand)
             newLand.pos = pos
 
-    def spy_can_steal_card(self) -> bool:
-        return any(map(lambda x: isinstance(x, (Fleet, Knight, Action)), self.opponent.cardsInHand))
+    def refresh_hand_board(self):
+        self.game.display_cards_on_board(self.cardsInHand, self.handBoard)
+
+    ####################################################################################################################
+    #################   ACTION CARDS           #########################################################################
+    ####################################################################################################################
 
     def play_action_card_spy(self) -> None:
         self.game.display_cards_on_board(self.opponent.cardsInHand, self.game.choiceBoard)
@@ -148,14 +149,11 @@ class Player(ABC):
             self.wait_for_ok()
             return
 
-        unit = self.select_unit_to_steal()
-        self.opponent.cardsInHand.remove(unit)
-        self.cardsInHand.append(unit)
+        card = self.select_card_to_steal_by_spy()
+        self.opponent.cardsInHand.remove(card)
+        self.cardsInHand.append(card)
         self.refresh_hand_board()
         self.opponent.refresh_hand_board()
-
-    def has_card(self, name: str) -> bool:
-        return any(map(lambda x: x.name == name, self.cardsInHand))
 
     def remove_action_card(self, cardName: str) -> None:
         for card in self.cardsInHand:
@@ -189,6 +187,7 @@ class Player(ABC):
             self.fleetPlayed.remove(card)
 
         card.settlement = None
+        card.player = None
         self.cardsInHand.append(card)
         self.refresh_hand_board()
         self.game.mainBoard.set_square(card.pos, slot)
@@ -549,7 +548,7 @@ class Player(ABC):
         pass
 
     @abstractmethod
-    def select_unit_to_steal(self) -> Knight | Fleet:
+    def select_card_to_steal_by_spy(self) -> Knight | Fleet | Action:
         pass
 
     @abstractmethod

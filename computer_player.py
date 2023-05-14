@@ -45,8 +45,8 @@ class ComputerPlayer(Player):
     def pick_starting_cards(self) -> None:
         # TODO - setup card priority
         pile = self.select_pile()
-        while len(self.cardsInHand) < self.cardsInHandCnt:
-            self.add_card(pile.pop())
+        while len(self.cardsInHand) < self.cardsInHandDefaultCnt:
+            self.cardsInHand.append(pile.pop())
         self.refresh_hand_board()
 
     def throw_dice(self) -> None:
@@ -163,7 +163,7 @@ class ComputerPlayer(Player):
     def select_resource_to_purchase(self) -> Landscape:
         pass
 
-    def select_unit_to_steal(self) -> Knight | Fleet:
+    def select_card_to_steal_by_spy(self) -> Knight | Fleet | Action:
         pass
 
     def decide_use_scout(self) -> bool:

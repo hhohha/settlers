@@ -20,7 +20,7 @@ from game import Game
 #  - human_player.py
 #  - main.py
 #  - player.py
-#  - util.py                  OK
+#  - util.py                  PART
 
 def main():
     random.seed(time.time())

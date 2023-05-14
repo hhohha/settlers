@@ -6,7 +6,7 @@ from config import MAX_LAND_RESOURCES
 from custom_types import Pile
 from enums import Button, DiceEvent, Resource
 from player import Player
-from util import Pos, MouseClick, RESOURCE_LIST, Cost
+from util import Pos, MouseClick, RESOURCE_LIST, Cost, is_next_to
 from card import Landscape, Playable, Path, Town, Village, Settlement, Action, SettlementSlot, Buildable, Knight, Fleet, \
     Building
 
@@ -74,7 +74,7 @@ class HumanPlayer(Player):
             click: MouseClick = self.game.display.get_mouse_click()
             if selectedCardIdx is not None and self.button_clicked(click) == Button.OK.value:
                 card = pile.pop(selectedCardIdx)
-                self.add_card(card)
+                self.cardsInHand.append(card)
                 self.refresh_hand_board()
                 return
 
@@ -122,7 +122,7 @@ class HumanPlayer(Player):
     def pick_starting_cards(self) -> None:
         pile = self.select_pile()
         self.game.display.print_msg('select cards')
-        while len(self.cardsInHand) < self.cardsInHandCnt:
+        while len(self.cardsInHand) < self.cardsInHandDefaultCnt:
             self.get_card_from_choice(pile)
         self.game.choiceBoard.clear()
 
@@ -214,7 +214,7 @@ class HumanPlayer(Player):
         self.game.display.print_msg(f'will you defend against {againstCard}?')
         return self.ok_or_cancel()
 
-    def select_unit_to_steal(self) -> Knight | Fleet:
+    def select_card_to_steal_by_spy(self) -> Knight | Fleet | Action:
         click = self.game.get_filtered_click((ClickFilter(
             board=self.game.choiceBoard,
             cardType=(Fleet, Knight, Action)
@@ -303,13 +303,13 @@ class HumanPlayer(Player):
                 return None
 
             if infraType == Village:
-                if card.name == 'empty' and click.pos.y == self.midPos.y and self.is_next_to(click.pos, Path):
+                if card.name == 'empty' and click.pos.y == self.midPos.y and is_next_to(self.game.mainBoard, click.pos, Path):
                     return click.pos
             elif infraType == Town:
                 if isinstance(card, Village) and card.player is self:
                     return click.pos
             elif infraType == Path:
-                if card.name == 'empty' and click.pos.y == self.midPos.y and self.is_next_to(click.pos, Settlement):
+                if card.name == 'empty' and click.pos.y == self.midPos.y and is_next_to(self.game.mainBoard, click.pos, Settlement):
                     return click.pos
             elif infraType == Buildable:
                 if isinstance(card, SettlementSlot) and card.settlement is not None and card.settlement.player is self:

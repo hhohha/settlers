@@ -107,7 +107,7 @@ class Game:
         landCards: List[Landscape] = []
         for card in CardData.create_landscape_cards(self.player1, self.player2):
             if card.player is not None:
-                card.player.setup_land_card(card)
+                card.player.setup_initial_land_card(card)
             else:
                 landCards.append(card)
         return landCards
