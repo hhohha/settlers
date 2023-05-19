@@ -43,7 +43,7 @@ class Cost:
         return all([getattr(self, resource) >= getattr(other, resource) for resource in RESOURCE_LIST])
 
     def is_zero(self) -> bool:
-        return all([getattr(self, resource) == 0 for resource in RESOURCE_LIST])
+        return self.total() == 0
 
     def total(self) -> int:
         return self.gold + self.sheep + self.grain + self.brick + self.rock + self.wood

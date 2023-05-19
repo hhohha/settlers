@@ -114,6 +114,26 @@ class Player(ABC):
     def get_unprotected_resources_cnt(self) -> int:
         return sum(map(lambda l: 0 if self.game.is_protected_by_warehouse(l) else l.resourcesHeld, self.landscapeCards))
 
+    def get_resource_cost(self, resource: Resource) -> int:
+        if resource == Resource.GOLD:
+            return 1 if 'mint' in map(lambda b: b.name, self.buildingsPlayed) else 3
+
+        return 2 if resource in map(lambda f: f.affectedResource, self.fleetPlayed) else 3
+
+    def can_grab_resource_from_opponent(self) -> bool:
+        resourcesCanReceive: Set[Resource] = set()
+        resourcesCanGive: Set[Resource] = set()
+
+        for land in self.landscapeCards:
+            if land.resourcesHeld < MAX_LAND_RESOURCES:
+                resourcesCanReceive.add(land.resource)
+
+        for land in self.opponent.landscapeCards:
+            if land.resourcesHeld > 0:
+                resourcesCanGive.add(land.resource)
+
+        return bool(resourcesCanReceive.intersection(resourcesCanGive))
+
     ####################################################################################################################
     #################   CARD PLACEMENT         #########################################################################
     ####################################################################################################################
@@ -277,6 +297,28 @@ class Player(ABC):
     #################   HELPER METHODS         #########################################################################
     ####################################################################################################################
 
+    def trade(self) -> None:
+        print('trading started')
+        resourceToPay: Optional[Resource] = self.select_resource_to_trade_for()
+        if resourceToPay is None:
+            return
+
+        rate: int = self.get_resource_cost(resourceToPay)
+        print(f'{resourceToPay.value} can be traded with rate of {rate}')
+
+        cost = Cost()
+        cost.set(resourceToPay, rate)
+        if not self.can_cover_cost(cost):
+            print(f'trade not possible, not enough {resourceToPay.value} available')
+            return
+
+        self.pay(cost)
+        land: Landscape = self.select_resource_to_purchase()
+        land.resourcesHeld += 1
+
+        assert land.pos is not None
+        self.game.mainBoard.refresh_square(land.pos)
+
     def take_back_to_hand(self, card: Buildable):
         assert card.pos is not None and card.settlement is not None and card.player is self
 
@@ -320,47 +362,16 @@ class Player(ABC):
             print(f'tossed {toss}, action failed')
             return self.opponent
 
-    ####################################################################################################################
-    #################   TO BE SORTED AND UNIT TESTED       #############################################################
-    ####################################################################################################################
-
     def lose_ambush_resources(self):
         for land in self.landscapeCards:
             if land.resource.value in STOLEN_AMBUSH_RESOURCES:
                 land.resourcesHeld = 0
                 self.game.mainBoard.refresh_square(land.pos)
 
-    def get_resource_cost(self, resource: Resource) -> int:
-        if resource == Resource.GOLD:
-            return 1 if 'mint' in map(lambda b: b.name, self.buildingsPlayed) else 3
+    ####################################################################################################################
+    #################   TO BE SORTED AND UNIT TESTED       #############################################################
+    ####################################################################################################################
 
-        return 2 if resource in map(lambda f: f.affectedResource, self.fleetPlayed) else 3
-
-    def trade(self) -> None:
-        print('trading started')
-        resourceToPay: Optional[Resource] = self.select_resource_to_trade_for()
-        if resourceToPay is None:
-            return
-
-        rate: int = self.get_resource_cost(resourceToPay)
-
-        print(f'{resourceToPay.value} can be traded with rate of {rate}')
-
-        cost = Cost()
-        setattr(cost, resourceToPay.value, rate)
-        if not self.can_cover_cost(cost):
-            print(f'trade not possible, not enough {resourceToPay.value}')
-            return
-
-        self.pay(cost)
-
-        land: Optional[Landscape] = self.select_resource_to_purchase()
-        if land is None:
-            return
-
-        land.resourcesHeld += 1
-        assert land.pos is not None
-        self.game.mainBoard.refresh_square(land.pos)
 
     def build_infrastructure(self, infraType: Type[Town | Village | Path]) -> None:
         if self.game.infraCardsLeft[infraType] < 1:
@@ -440,20 +451,6 @@ class Player(ABC):
             return self.pay_specific(cost)
         else:
             return self.pay_any(cost)
-
-    def can_grab_resource_from_opponent(self):
-        resourcesCanReceive: Set[Resource] = set()
-        resourcesCanGive: Set[Resource] = set()
-
-        for land in self.landscapeCards:
-            if land.resourcesHeld < MAX_LAND_RESOURCES:
-                resourcesCanReceive.add(land.resource)
-
-        for land in self.opponent.landscapeCards:
-            if land.resourcesHeld == 0:
-                resourcesCanGive.add(land.resource)
-
-        return bool(resourcesCanReceive.intersection(resourcesCanGive))
 
     def use_defence(self, action: str) -> bool:
         assert action in DEFENCE_CARDS, f'there is no defence against {action}'

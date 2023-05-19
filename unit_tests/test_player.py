@@ -1,4 +1,6 @@
 import unittest, sys
+from random import randint
+from typing import Optional
 from unittest.mock import MagicMock
 
 import config
@@ -510,68 +512,174 @@ class TestStack(unittest.TestCase):
         self.assertEqual(len(p1.give_any_resource.mock_calls), 1)
 
     def test_play_caravan(self):
-        p1 = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
-        p1.wait_for_ok = MagicMock()
-        p1.trade_with_caravan = MagicMock()
+        p = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
+        p.wait_for_ok = MagicMock()
+        p.trade_with_caravan = MagicMock()
 
-        p1.play_action_card_caravan()
-        p1.wait_for_ok.assert_called_once()
-        p1.trade_with_caravan.assert_not_called()
+        p.play_action_card_caravan()
+        p.wait_for_ok.assert_called_once()
+        p.trade_with_caravan.assert_not_called()
 
-        p1.wait_for_ok.reset_mock()
-        p1.landscapeCards.append(Landscape('wood', Resource.WOOD, 1))
-        p1.landscapeCards[0].resourcesHeld = 1
+        p.wait_for_ok.reset_mock()
+        p.landscapeCards.append(Landscape('wood', Resource.WOOD, 1))
+        p.landscapeCards[0].resourcesHeld = 1
 
-        p1.play_action_card_caravan()
-        p1.wait_for_ok.assert_not_called()
-        self.assertEqual(len(p1.trade_with_caravan.mock_calls), 2)
+        p.play_action_card_caravan()
+        p.wait_for_ok.assert_not_called()
+        self.assertEqual(len(p.trade_with_caravan.mock_calls), 2)
 
     def test_play_card_from_hand(self):
-        p1 = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
+        p = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
 
         # create a settlement, slot and interconnect them
-        slot = SettlementSlot(Pos(1, 1), p1)
-        settlement = Village(Pos(3, 3), p1)
+        slot = SettlementSlot(Pos(1, 1), p)
+        settlement = Village(Pos(3, 3), p)
         slot.settlement = settlement
         settlement.cards.append(slot)
 
-        p1.pay = MagicMock()
-        p1.refresh_hand_board = MagicMock()
-        p1.can_cover_cost = MagicMock(return_value=True)
-        p1.game.mainBoard.get_square = MagicMock(return_value=slot)
+        p.pay = MagicMock()
+        p.refresh_hand_board = MagicMock()
+        p.can_cover_cost = MagicMock(return_value=True)
+        p.game.mainBoard.get_square = MagicMock(return_value=slot)
 
         card = Building('mill', Cost(wood=1), False, 1, 1)
-        p1.cardsInHand.append(card)
+        p.cardsInHand.append(card)
 
-        p1.play_card_from_hand(card, Pos(1, 1))
+        p.play_card_from_hand(card, Pos(1, 1))
 
-        self.assertEqual(len(p1.cardsInHand), 0)
-        self.assertEqual(len(p1.buildingsPlayed), 1)
-        self.assertEqual(p1.buildingsPlayed[0].name, 'mill')
+        self.assertEqual(len(p.cardsInHand), 0)
+        self.assertEqual(len(p.buildingsPlayed), 1)
+        self.assertEqual(p.buildingsPlayed[0].name, 'mill')
         self.assertEqual(card.pos, Pos(1, 1))
         self.assertIs(card.settlement, settlement)
-        self.assertIs(card.player, p1)
+        self.assertIs(card.player, p)
         self.assertEqual(len(settlement.cards), 1)
         self.assertEqual(settlement.cards[0].name, 'mill')
 
-        slot2 = SettlementSlot(Pos(1, 0), p1)
+        slot2 = SettlementSlot(Pos(1, 0), p)
         slot2.settlement = settlement
         settlement.cards.append(slot2)
 
-        p1.game.mainBoard.get_square = MagicMock(return_value=slot2)
+        p.game.mainBoard.get_square = MagicMock(return_value=slot2)
 
         card = Knight('rambo', Cost(), 1, 1)
-        p1.cardsInHand.append(card)
+        p.cardsInHand.append(card)
 
-        p1.select_new_card_position = MagicMock(return_value=Pos(1, 3))
-        p1.play_card_from_hand(card)
+        p.select_new_card_position = MagicMock(return_value=Pos(1, 3))
+        p.play_card_from_hand(card)
 
-        self.assertEqual(len(p1.cardsInHand), 0)
-        self.assertEqual(len(p1.buildingsPlayed), 1)
-        self.assertEqual(len(p1.knightsPlayed), 1)
-        self.assertEqual(p1.knightsPlayed[0].name, 'rambo')
+        self.assertEqual(len(p.cardsInHand), 0)
+        self.assertEqual(len(p.buildingsPlayed), 1)
+        self.assertEqual(len(p.knightsPlayed), 1)
+        self.assertEqual(p.knightsPlayed[0].name, 'rambo')
         self.assertEqual(card.pos, Pos(1, 3))
         self.assertIs(card.settlement, settlement)
-        self.assertIs(card.player, p1)
+        self.assertIs(card.player, p)
         self.assertEqual(len(settlement.cards), 2)
         self.assertEqual(settlement.cards[1].name, 'rambo')
+
+    def test_lose_ambush_resources(self):
+        p = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
+
+        p.lose_ambush_resources()
+        self.assertEqual(p.get_resources_available(), Cost())
+
+        p.landscapeCards = [
+            Landscape('wood', Resource.WOOD, 1),
+            Landscape('sheep', Resource.SHEEP, 2),
+            Landscape('grain', Resource.GRAIN, 3),
+            Landscape('rock', Resource.ROCK, 4),
+            Landscape('sheep', Resource.SHEEP, 5)
+        ]
+        p.landscapeCards[0].resourcesHeld = 0
+        p.landscapeCards[1].resourcesHeld = 2
+        p.landscapeCards[2].resourcesHeld = 3
+        p.landscapeCards[3].resourcesHeld = 3
+        p.landscapeCards[4].resourcesHeld = 1
+
+        p.lose_ambush_resources()
+        self.assertEqual(p.get_resources_available(), Cost(grain=3))
+
+    def test_get_resource_cost(self):
+        p = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
+
+        self.assertEqual(p.get_resource_cost(Resource.WOOD), 3)
+        self.assertEqual(p.get_resource_cost(Resource.GOLD), 3)
+
+        p.buildingsPlayed.append(Building('mill', Cost(), True, 1, 0))
+        self.assertEqual(p.get_resource_cost(Resource.GOLD), 3)
+
+        p.buildingsPlayed.append(Building('mint', Cost(), True, 1, 0))
+        self.assertEqual(p.get_resource_cost(Resource.GOLD), 1)
+
+        p.fleetPlayed.append(Fleet('fleet_brick', Cost(), Resource.BRICK, 0))
+        self.assertEqual(p.get_resource_cost(Resource.WOOD), 3)
+        self.assertEqual(p.get_resource_cost(Resource.BRICK), 2)
+
+    def test_trade(self):
+        p = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
+
+        land = Landscape('sheep', Resource.SHEEP, 1)
+        land.pos = Pos(1, 1)
+        p.landscapeCards.append(land)
+
+        p.buildingsPlayed.append(Building('mint', Cost(), True, 1, 0))
+        p.select_resource_to_trade_for = MagicMock(return_value=Resource.GOLD)
+        p.can_cover_cost = MagicMock(return_value=True)
+        p.pay = MagicMock
+        p.select_resource_to_purchase = MagicMock(return_value=land)
+
+        p.trade()
+        self.assertEqual(p.get_resources_available(), Cost(sheep=1))
+
+    def give_resource(self, player: Player, cost: Cost):
+        def find_land(p: Player, res: Resource) -> Optional[Landscape]:
+            for l in p.landscapeCards:
+                if l.resource == res and l.resourcesHeld < 3:
+                    return l
+
+        while not cost.is_zero():
+            for resource in Resource:
+                if cost.get(resource) > 0:
+                    cost.take(resource)
+                    land = find_land(player, resource)
+                    if land is not None:
+                        land.resourcesHeld += 1
+                    else:
+                        player.landscapeCards.append(Landscape(resource.value, resource, randint(1, 6)))
+                        player.landscapeCards[-1].resourcesHeld = 1
+
+    def test_can_grab_resource(self):
+        p1, p2 = self.init_players()
+
+        self.assertFalse(p1.can_grab_resource_from_opponent())
+
+        p1.landscapeCards = [
+            Landscape('wood', Resource.WOOD, 1),
+            Landscape('gold', Resource.GOLD, 2),
+            Landscape('rock', Resource.ROCK, 3),
+            Landscape('sheep', Resource.SHEEP, 4),
+            Landscape('brick', Resource.BRICK, 5),
+            Landscape('grain', Resource.GRAIN, 6)
+        ]
+        p2.landscapeCards = [
+            Landscape('wood', Resource.WOOD, 1),
+            Landscape('gold', Resource.GOLD, 2),
+            Landscape('rock', Resource.ROCK, 3),
+            Landscape('sheep', Resource.SHEEP, 4),
+            Landscape('brick', Resource.BRICK, 5),
+            Landscape('grain', Resource.GRAIN, 6)
+        ]
+        self.assertFalse(p1.can_grab_resource_from_opponent())
+
+        self.give_resource(p1, Cost(grain=1))
+        self.assertFalse(p1.can_grab_resource_from_opponent())
+
+        self.give_resource(p2, Cost(grain=1))
+        self.give_resource(p1, Cost(grain=2))
+        self.assertFalse(p1.can_grab_resource_from_opponent())
+
+        self.give_resource(p2, Cost(wood=1))
+        self.give_resource(p2, Cost(wood=1))
+        self.assertTrue(p1.can_grab_resource_from_opponent())
+
