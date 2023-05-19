@@ -1,4 +1,4 @@
-import unittest
+import unittest, sys
 from unittest.mock import MagicMock
 
 import config
@@ -297,29 +297,19 @@ class TestStack(unittest.TestCase):
         p.cardsInHand.append(Building('b3', Cost(), True, 0, 0))
         self.assertTrue(p.spy_can_steal_card())
 
-    def test_play_spy(self):
+    def test_get_advance_resource_cnt(self):
         p = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
-        p.wait_for_ok = MagicMock()
-        p.opponent = MagicMock()
-        p.opponent.cardsInHand = [
-            Knight('knight1', Cost(), 2, 3),
-            Fleet('fleet1', Cost(), Resource.ROCK, 1),
-            Action('bishop')
-        ]
-        p.select_card_to_steal_by_spy = MagicMock(return_value=p.opponent.cardsInHand[2])
+        self.assertEqual(p.get_advance_resource_cnt(), 0)
 
-        p.play_action_card_spy()
-        self.assertEqual(len(p.opponent.cardsInHand), 2)
-        self.assertEqual(len(p.cardsInHand), 1)
-        self.assertTrue(isinstance(p.cardsInHand[0], Action))
+        p.buildingsPlayed.append(Building('town_hall', Cost(), True, 1, 1))
+        p.buildingsPlayed.append(Building('mill', Cost(), True, 1, 1))
+        self.assertEqual(p.get_advance_resource_cnt(), 0)
 
-        p.opponent.cardsInHand = [
-            Building('b1', Cost(), True, 2, 3),
-            Building('b2', Cost(), False, 1, 1)
-        ]
-        p.play_action_card_spy()
-        self.assertEqual(len(p.opponent.cardsInHand), 2)
-        self.assertEqual(len(p.cardsInHand), 1)
+        p.buildingsPlayed.append(Building('library', Cost(), True, 1, 1))
+        p.buildingsPlayed.append(Building('warehouse', Cost(), True, 1, 1))
+        p.buildingsPlayed.append(Building('cloister', Cost(), True, 1, 1))
+        self.assertEqual(p.get_advance_resource_cnt(), 2)
+
 
     def test_remove_action_card(self):
         p = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
@@ -359,30 +349,229 @@ class TestStack(unittest.TestCase):
         self.assertIs(village.cards[0].player, p)
         self.assertIs(village.cards[0].settlement, village)
 
-
-    def test_play_arson(self):
+    def test_action_card_get_toss_winner(self):
         p1 = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
         p2 = Player(self.gameMock, self.handBoardMock, 2, False, Pos(2, 2))
         p1.opponent, p2.opponent = p2, p1
+
+        p1.opponent.use_defence = MagicMock(return_value=False)
+        p1.opponent.remove_action_card = MagicMock()
         p1.wait_for_ok = MagicMock()
-        p2.wait_for_ok = MagicMock()
+        sys.modules[Player.__module__].print = MagicMock()
 
-        # 1. I win and cannot burn something
+        with self.assertRaises(AssertionError):
+            p1.action_card_get_toss_winner('bad_name')
+
+        for i in range(1, 6):
+            sys.modules[Player.__module__].randint = MagicMock(return_value=i)
+            winner = p1.action_card_get_toss_winner('ambush')
+            self.assertIs(winner, p1 if i <= 5 else p2)
+
+        p1.opponent.use_defence = MagicMock(return_value=True)
+        for i in range(1, 6):
+            sys.modules[Player.__module__].randint = MagicMock(return_value=i)
+            winner = p1.action_card_get_toss_winner('black_knight')
+            self.assertIs(winner, p1 if i <= 2 else p2)
+
+        sys.modules[Player.__module__].print = print
+
+    def test_play_spy(self):
+        p = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
+        p.wait_for_ok = MagicMock()
+        p.opponent = MagicMock()
+        p.opponent.cardsInHand = [
+            Knight('knight1', Cost(), 2, 3),
+            Fleet('fleet1', Cost(), Resource.ROCK, 1),
+            Action('bishop')
+        ]
+        p.select_card_to_steal_by_spy = MagicMock(return_value=p.opponent.cardsInHand[2])
+
+        p.play_action_card_spy()
+        self.assertEqual(len(p.opponent.cardsInHand), 2)
+        self.assertEqual(len(p.cardsInHand), 1)
+        self.assertTrue(isinstance(p.cardsInHand[0], Action))
+
+        p.opponent.cardsInHand = [
+            Building('b1', Cost(), True, 2, 3),
+            Building('b2', Cost(), False, 1, 1)
+        ]
+        p.play_action_card_spy()
+        self.assertEqual(len(p.opponent.cardsInHand), 2)
+        self.assertEqual(len(p.cardsInHand), 1)
+
+    def init_players(self):
+        player1 = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
+        player2 = Player(self.gameMock, self.handBoardMock, 2, False, Pos(2, 2))
+        player1.opponent, player2.opponent = player2, player1
+        player1.wait_for_ok = MagicMock()
+        player2.wait_for_ok = MagicMock()
+        return player1, player2
+
+    def test_play_arson(self):
+        b = Building('building1', Cost(), True, 1, 1)
+
+        # 1. I win and cannot burn anything
+        p1, p2 = self.init_players()
+        p1.buildingsPlayed.append(b)
         p1.action_card_get_toss_winner = MagicMock(return_value=p1)
-        p1.play_action_card_spy()
-        self.assertEqual(len(p2.buildingsPlayed), 0)
 
-        #b = Building('building1', Cost(), True, 1, 1)
-        #p2.buildingsPlayed.append(b)
-        #p1.select_building_to_burn = MagicMock(return_value=b)
-        #p1.play_action_card_spy()
-        #self.assertEqual(len(p2.buildingsPlayed), 0)
+        p1.play_action_card_arson()
+        self.assertTrue(p1.wait_for_ok.called)
 
-        # 2. i win but cannot burn something
-        #p1.action_card_get_toss_winner = MagicMock(return_value=p1)
+        # 2. i win and i can burn something
+        p1, p2 = self.init_players()
+        p1.action_card_get_toss_winner = MagicMock(return_value=p1)
+        p2.buildingsPlayed.append(b)
+        p1.select_building_to_burn = MagicMock(return_value=b)
+        p2.take_back_to_hand = MagicMock()
 
-        # 3. i lose and have something burnt
-        #p1.action_card_get_toss_winner = MagicMock(return_value=p2)
+        p1.play_action_card_arson()
+        self.assertTrue(p2.take_back_to_hand.called)
 
-        # 4. i lose and cannot have anything burnt
-        #p1.action_card_get_toss_winner = MagicMock(return_value=p2)
+        # 3. i lose and have nothing to burn
+        p1, p2 = self.init_players()
+        p1.action_card_get_toss_winner = MagicMock(return_value=p2)
+        p2.buildingsPlayed.append(b)
+
+        p1.play_action_card_arson()
+        self.assertTrue(p1.wait_for_ok.called)
+
+        # 4. i lose and cannot have something to be burnt
+        p1, p2 = self.init_players()
+        p1.action_card_get_toss_winner = MagicMock(return_value=p2)
+        p1.buildingsPlayed.append(b)
+        p2.select_building_to_burn = MagicMock(return_value=b)
+        p1.take_back_to_hand = MagicMock()
+
+        p1.play_action_card_arson()
+        self.assertTrue(p1.take_back_to_hand.called)
+
+    def test_play_black_knight(self):
+        k = Knight('building1', Cost(), 2, 3)
+
+        # 1. I win and cannot kill anyone
+        p1, p2 = self.init_players()
+        p1.knightsPlayed.append(k)
+        p1.action_card_get_toss_winner = MagicMock(return_value=p1)
+
+        p1.play_action_card_black_knight()
+        self.assertTrue(p1.wait_for_ok.called)
+
+        # 2. i win and i can kill someone
+        p1, p2 = self.init_players()
+        p1.action_card_get_toss_winner = MagicMock(return_value=p1)
+        p2.knightsPlayed.append(k)
+        p1.select_knight_to_kill = MagicMock(return_value=k)
+        p2.take_back_to_hand = MagicMock()
+
+        p1.play_action_card_black_knight()
+        self.assertTrue(p2.take_back_to_hand.called)
+
+        # 3. i lose and have nothing to burn
+        p1, p2 = self.init_players()
+        p1.action_card_get_toss_winner = MagicMock(return_value=p2)
+        p2.knightsPlayed.append(k)
+
+        p1.play_action_card_black_knight()
+        self.assertTrue(p1.wait_for_ok.called)
+
+        # 4. i lose and cannot have something to be burnt
+        p1, p2 = self.init_players()
+        p1.action_card_get_toss_winner = MagicMock(return_value=p2)
+        p1.knightsPlayed.append(k)
+        p2.select_knight_to_kill = MagicMock(return_value=k)
+        p1.take_back_to_hand = MagicMock()
+
+        p1.play_action_card_black_knight()
+        self.assertTrue(p1.take_back_to_hand.called)
+
+    def test_play_ambush(self):
+        p1, p2 = self.init_players()
+        p1.action_card_get_toss_winner = MagicMock(return_value=p1)
+        p1.grab_any_resource_if_possible = MagicMock()
+
+        p1.play_action_card_ambush()
+        self.assertEqual(len(p1.grab_any_resource_if_possible.mock_calls), 2)
+
+        p1, p2 = self.init_players()
+        p1.action_card_get_toss_winner = MagicMock(return_value=p2)
+        p2.grab_any_resource_if_possible = MagicMock()
+
+        p1.play_action_card_ambush()
+        self.assertEqual(len(p2.grab_any_resource_if_possible.mock_calls), 2)
+
+    def test_play_trader(self):
+        p1, p2 = self.init_players()
+        p1.grab_any_resource_if_possible = MagicMock()
+        p1.give_any_resource = MagicMock()
+
+        p1.play_action_card_trader()
+        self.assertEqual(len(p1.grab_any_resource_if_possible.mock_calls), 2)
+        self.assertEqual(len(p1.give_any_resource.mock_calls), 1)
+
+    def test_play_caravan(self):
+        p1 = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
+        p1.wait_for_ok = MagicMock()
+        p1.trade_with_caravan = MagicMock()
+
+        p1.play_action_card_caravan()
+        p1.wait_for_ok.assert_called_once()
+        p1.trade_with_caravan.assert_not_called()
+
+        p1.wait_for_ok.reset_mock()
+        p1.landscapeCards.append(Landscape('wood', Resource.WOOD, 1))
+        p1.landscapeCards[0].resourcesHeld = 1
+
+        p1.play_action_card_caravan()
+        p1.wait_for_ok.assert_not_called()
+        self.assertEqual(len(p1.trade_with_caravan.mock_calls), 2)
+
+    def test_play_card_from_hand(self):
+        p1 = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
+
+        # create a settlement, slot and interconnect them
+        slot = SettlementSlot(Pos(1, 1), p1)
+        settlement = Village(Pos(3, 3), p1)
+        slot.settlement = settlement
+        settlement.cards.append(slot)
+
+        p1.pay = MagicMock()
+        p1.refresh_hand_board = MagicMock()
+        p1.can_cover_cost = MagicMock(return_value=True)
+        p1.game.mainBoard.get_square = MagicMock(return_value=slot)
+
+        card = Building('mill', Cost(wood=1), False, 1, 1)
+        p1.cardsInHand.append(card)
+
+        p1.play_card_from_hand(card, Pos(1, 1))
+
+        self.assertEqual(len(p1.cardsInHand), 0)
+        self.assertEqual(len(p1.buildingsPlayed), 1)
+        self.assertEqual(p1.buildingsPlayed[0].name, 'mill')
+        self.assertEqual(card.pos, Pos(1, 1))
+        self.assertIs(card.settlement, settlement)
+        self.assertIs(card.player, p1)
+        self.assertEqual(len(settlement.cards), 1)
+        self.assertEqual(settlement.cards[0].name, 'mill')
+
+        slot2 = SettlementSlot(Pos(1, 0), p1)
+        slot2.settlement = settlement
+        settlement.cards.append(slot2)
+
+        p1.game.mainBoard.get_square = MagicMock(return_value=slot2)
+
+        card = Knight('rambo', Cost(), 1, 1)
+        p1.cardsInHand.append(card)
+
+        p1.select_new_card_position = MagicMock(return_value=Pos(1, 3))
+        p1.play_card_from_hand(card)
+
+        self.assertEqual(len(p1.cardsInHand), 0)
+        self.assertEqual(len(p1.buildingsPlayed), 1)
+        self.assertEqual(len(p1.knightsPlayed), 1)
+        self.assertEqual(p1.knightsPlayed[0].name, 'rambo')
+        self.assertEqual(card.pos, Pos(1, 3))
+        self.assertIs(card.settlement, settlement)
+        self.assertIs(card.player, p1)
+        self.assertEqual(len(settlement.cards), 2)
+        self.assertEqual(settlement.cards[1].name, 'rambo')

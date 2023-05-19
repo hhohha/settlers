@@ -105,6 +105,15 @@ class Player(ABC):
     def spy_can_steal_card(self) -> bool:
         return any(map(lambda x: isinstance(x, (Fleet, Knight, Action)), self.opponent.cardsInHand))
 
+    def get_advance_resource_cnt(self) -> int:
+        return sum(map(lambda b: 1 if b.name in ADVANCE_BUILDINGS else 0, self.buildingsPlayed))
+
+    def has_global_plaque_protection(self) -> bool:
+        return 'aquaduct' in map(lambda b: b.name, self.buildingsPlayed)
+
+    def get_unprotected_resources_cnt(self) -> int:
+        return sum(map(lambda l: 0 if self.game.is_protected_by_warehouse(l) else l.resourcesHeld, self.landscapeCards))
+
     ####################################################################################################################
     #################   CARD PLACEMENT         #########################################################################
     ####################################################################################################################
@@ -135,6 +144,45 @@ class Player(ABC):
             self.landscapeCards.append(newLand)
             newLand.pos = pos
 
+    def play_card_from_hand(self, card: Playable, pos: Optional[Pos]=None) -> None:
+        if isinstance(card, Action):
+            self.play_action_card(card)
+            return
+
+        assert isinstance(card, Buildable)
+
+        if not self.can_cover_cost(card.cost):
+            print('you cannot afford to play this')
+            return
+
+        townOnly: bool = card.townOnly if isinstance(card, Building) else False
+
+        if pos is None:
+            pos = self.select_new_card_position(Buildable, townOnly)
+        if pos is None:
+            return
+
+        slot = self.game.mainBoard.get_square(pos)
+        assert isinstance(slot, SettlementSlot), f'cannot place card to {pos}, slot is not valid'
+        assert slot.settlement is not None
+
+        card.settlement = slot.settlement
+        card.settlement.cards.remove(slot)
+        card.settlement.cards.append(card)
+        self.game.mainBoard.set_square(pos, card)
+        card.pos, card.player = pos, self
+
+        if isinstance(card, Building):
+            self.buildingsPlayed.append(card)
+        elif isinstance(card, Knight):
+            self.knightsPlayed.append(card)
+        elif isinstance(card, Fleet):
+            self.fleetPlayed.append(card)
+
+        self.cardsInHand.remove(card)
+        self.refresh_hand_board()
+        self.pay(card.cost)
+
     def refresh_hand_board(self):
         self.game.display_cards_on_board(self.cardsInHand, self.handBoard)
 
@@ -155,13 +203,6 @@ class Player(ABC):
         self.refresh_hand_board()
         self.opponent.refresh_hand_board()
 
-    def remove_action_card(self, cardName: str) -> None:
-        for card in self.cardsInHand:
-            if isinstance(card, Action) and card.name == cardName:
-                self.cardsInHand.remove(card)
-                return
-        assert False, f'player does not have action card {cardName}'
-
     def play_action_card_arson(self) -> None:
         winner = self.action_card_get_toss_winner('arson')
         if not winner.opponent.buildingsPlayed:
@@ -172,67 +213,20 @@ class Player(ABC):
         burntBuilding: Building = winner.select_building_to_burn()
         winner.opponent.take_back_to_hand(burntBuilding)
 
-    ####################################################################################################################
-    ####################################################################################################################
-    ####################################################################################################################
-
-    def take_back_to_hand(self, card: Buildable):
-        assert card.pos is not None and card.settlement is not None and card.player is self
-
-        slot = SettlementSlot(card.pos, self)
-        slot.settlement = card.settlement
-        slot.settlement.cards.append(slot)
-        slot.settlement.cards.remove(card)
-
-        card.settlement, card.player, card.pos = None, None, None
-
-        if isinstance(card, Building):
-            self.buildingsPlayed.remove(card)
-        elif isinstance(card, Knight):
-            self.knightsPlayed.remove(card)
-        elif isinstance(card, Fleet):
-            self.fleetPlayed.remove(card)
-
-        self.cardsInHand.append(card)
-        self.refresh_hand_board()
-        self.game.mainBoard.set_square(slot.pos, slot)
-
-    def play_action_card_ambush(self) -> None:
-        winner = self.action_card_get_toss_winner('ambush')
-        for _ in range(2):
-            winner.grab_any_resource_if_possible()
-
     def play_action_card_black_knight(self) -> None:
         winner = self.action_card_get_toss_winner('black_knight')
-
         if not winner.opponent.knightsPlayed:
-            print(f'black knight cannot kill anyone')
+            self.game.display.print_msg('black knight cannot kill anyone')
+            self.wait_for_ok()
             return
 
         killedKnight: Knight = winner.select_knight_to_kill()
         winner.opponent.take_back_to_hand(killedKnight)
 
-    def action_card_get_toss_winner(self, actionName: str) -> Player:
-        assert actionName in DEFENCE_CARDS, f'no defence against {actionName}'
-
-        if self.opponent.use_defence(actionName):
-            self.opponent.remove_action_card(DEFENCE_CARDS[actionName])
-            print(f'defence against {actionName} activated')
-            actionSuccessFrom6 = 2
-        else:
-            print(f'defence against {actionName} NOT activated')
-            actionSuccessFrom6 = 5
-
-        self.game.display.print_msg('press ok to toss')
-        self.wait_for_ok()
-
-        toss = randint(1, 6)
-        if toss > actionSuccessFrom6:
-            print(f'tossed {toss}, action succeeded')
-            return self
-        else:
-            print(f'tossed {toss}, action failed')
-            return self.opponent
+    def play_action_card_ambush(self) -> None:
+        winner = self.action_card_get_toss_winner('ambush')
+        for _ in range(2):
+            winner.grab_any_resource_if_possible()
 
     def play_action_card_trader(self) -> None:
         for _ in range(2):
@@ -240,14 +234,21 @@ class Player(ABC):
 
         self.give_any_resource()
 
+    def remove_action_card(self, cardName: str) -> None:
+        for card in self.cardsInHand:
+            if isinstance(card, Action) and card.name == cardName:
+                self.cardsInHand.remove(card)
+                return
+        assert False, f'player does not have action card {cardName}'
+
     def play_action_card_caravan(self) -> None:
         if sum(map(lambda c: c.resourcesHeld, self.landscapeCards)) == 0:
-            print('nothing to trade for')
+            self.game.display.print_msg('nothing to trade for')
+            self.wait_for_ok()
             return
 
         for _ in range(2):
             self.trade_with_caravan()
-
 
     def play_action_card(self, card: Action) -> None:
         # following action cards can be played only at certain specific situation (not here):
@@ -272,61 +273,62 @@ class Player(ABC):
         self.cardsInHand.remove(card)
         self.refresh_hand_board()
 
+    ####################################################################################################################
+    #################   HELPER METHODS         #########################################################################
+    ####################################################################################################################
 
-    def play_card_from_hand(self, card: Playable, pos: Optional[Pos]=None) -> None:
-        if isinstance(card, Action):
-            self.play_action_card(card)
-            return
+    def take_back_to_hand(self, card: Buildable):
+        assert card.pos is not None and card.settlement is not None and card.player is self
 
-        assert isinstance(card, Buildable)
+        slot = SettlementSlot(card.pos, self)
+        slot.settlement = card.settlement
+        slot.settlement.cards.append(slot)
+        slot.settlement.cards.remove(card)
 
-        if not self.can_cover_cost(card.cost):
-            print('you cannot afford to play this')
-            return
-
-        townOnly: bool = card.townOnly if isinstance(card, Building) else False
-
-        if pos is None:
-            pos = self.select_new_card_position(Buildable, townOnly)
-        if pos is None:
-            return
-
-        slot = self.game.mainBoard.get_square(pos)
-        assert isinstance(slot, SettlementSlot), f'cannot place card to {pos}, slot is not valid'
-
-        assert slot.settlement is not None
-
-        card.settlement = slot.settlement
-        card.settlement.cards.remove(slot)
-        card.settlement.cards.append(card)
-        self.game.mainBoard.set_square(pos, card)
-        card.pos = pos
+        card.settlement, card.player, card.pos = None, None, None
 
         if isinstance(card, Building):
-            self.buildingsPlayed.append(card)
+            self.buildingsPlayed.remove(card)
         elif isinstance(card, Knight):
-            self.knightsPlayed.append(card)
+            self.knightsPlayed.remove(card)
         elif isinstance(card, Fleet):
-            self.fleetPlayed.append(card)
+            self.fleetPlayed.remove(card)
 
-        self.cardsInHand.remove(card)
+        self.cardsInHand.append(card)
         self.refresh_hand_board()
-        self.pay(card.cost)
+        self.game.mainBoard.set_square(slot.pos, slot)
 
-    def get_advance_resource_cnt(self) -> int:
-        return sum(map(lambda b: 1 if b.name in ADVANCE_BUILDINGS else 0, self.buildingsPlayed))
+    def action_card_get_toss_winner(self, actionName: str) -> Player:
+        assert actionName in DEFENCE_CARDS, f'no defence against {actionName}'
 
-    def get_unprotected_resources_cnt(self) -> int:
-        return sum(map(lambda l: 0 if self.game.is_protected_by_warehouse(l) else l.resourcesHeld, self.landscapeCards))
+        if self.opponent.use_defence(actionName):
+            self.opponent.remove_action_card(DEFENCE_CARDS[actionName])
+            print(f'defence against {actionName} activated')
+            actionSuccessFrom6 = 2
+        else:
+            print(f'defence against {actionName} NOT activated')
+            actionSuccessFrom6 = 5
+
+        self.game.display.print_msg('press ok to toss')
+        self.wait_for_ok()
+
+        toss = randint(1, 6)
+        if toss <= actionSuccessFrom6:
+            print(f'tossed {toss}, action succeeded')
+            return self
+        else:
+            print(f'tossed {toss}, action failed')
+            return self.opponent
+
+    ####################################################################################################################
+    #################   TO BE SORTED AND UNIT TESTED       #############################################################
+    ####################################################################################################################
 
     def lose_ambush_resources(self):
         for land in self.landscapeCards:
             if land.resource.value in STOLEN_AMBUSH_RESOURCES:
                 land.resourcesHeld = 0
                 self.game.mainBoard.refresh_square(land.pos)
-
-    def has_global_plaque_protection(self) -> bool:
-        return 'aquaduct' in map(lambda b: b.name, self.buildingsPlayed)
 
     def get_resource_cost(self, resource: Resource) -> int:
         if resource == Resource.GOLD:
@@ -457,7 +459,7 @@ class Player(ABC):
         assert action in DEFENCE_CARDS, f'there is no defence against {action}'
         defenceCard = DEFENCE_CARDS[action]
 
-        return self.has_card(defenceCard) and self.decide_use_defence(action)
+        return self.card_in_hand(defenceCard) and self.decide_use_defence(action)
 
     #TODO - refactor duplicated code
     def refill_hand(self, canSwap: bool) -> None:
