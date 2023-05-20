@@ -5,6 +5,7 @@ from game import Game
 # TODOS
 #  - implement AI
 #  - voluntarily remove card from board
+#  - remove print_msg from module player
 
 # COVERED BY UNIT TESTS
 #  - board.py                 OK
@@ -19,7 +20,7 @@ from game import Game
 #  - game.py
 #  - human_player.py
 #  - main.py
-#  - player.py
+#  - player.py                DONE
 #  - util.py                  PART
 
 def main():

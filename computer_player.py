@@ -115,16 +115,16 @@ class ComputerPlayer(Player):
         if infraType == Path:
             return self._find_place_for_path()
 
-    def select_card_to_pay(self, resource: Optional[Cost]) -> Landscape:
+    def select_card_to_pay(self, resource: Optional[Cost]=None) -> Landscape:
         pass
 
-    def swap_one_card(self) -> bool:
+    def decide_swap_one_card(self) -> bool:
         return False
 
-    def select_card_to_throw_away(self) -> int:
-        return 0
+    def select_card_to_throw_away(self) -> Playable:
+        return self.cardsInHand[0]
 
-    def get_card_from_choice(self, pile: Pile) -> None:
+    def select_card_from_choice(self, pile: Pile) -> Playable:
         pass
 
     def select_opponents_unit_to_remove(self) -> Buildable:

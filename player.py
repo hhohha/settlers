@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from board import Board
 
 class Player(ABC):
-    def __init__(self, game: Game, handBoard: Board, number: int, handBoardVisible: bool, midPos: Pos):
+    def __init__(self, game: Game, handBoard: Board, number: int, cardsVisible: bool, midPos: Pos):
         self.game: Game = game
         self.opponent: Player = self
         self.handBoard = handBoard
@@ -31,7 +31,7 @@ class Player(ABC):
         self.buildingsPlayed: List[Building] = []
         self.settlements: List[Settlement] = []
         self.paths: List[Path] = []
-        self.handBoardVisible: bool = handBoardVisible
+        self.cardsVisible: bool = cardsVisible
         self.midPos: Pos = midPos
         self.initialLandPos: List[Pos] = [
             self.midPos.up(),
@@ -42,7 +42,7 @@ class Player(ABC):
             self.midPos.down().left(2)
         ]
     ####################################################################################################################
-    #################   CALCULATING FUNCTION   #########################################################################
+    #################   CALCULATING FUNCTIONS   ########################################################################
     ####################################################################################################################
 
     def get_victory_points(self) -> int:
@@ -203,8 +203,62 @@ class Player(ABC):
         self.refresh_hand_board()
         self.pay(card.cost)
 
-    def refresh_hand_board(self):
+    def refresh_hand_board(self) -> None:
         self.game.display_cards_on_board(self.cardsInHand, self.handBoard)
+
+    def build_infrastructure(self, infraType: Type[Town | Village | Path]) -> None:
+        if self.game.infraCardsLeft[infraType] < 1:
+            print(f'no more cards {infraType} left')
+            return
+        if not self.can_cover_cost(infraType.cost):
+            print(f'you cannot afford this: {infraType}')
+            return
+
+        pos: Optional[Pos] = self.select_new_card_position(infraType)
+        if pos is None:
+            return
+
+        self.game.infraCardsLeft[infraType] -= 1
+        self.pay(infraType.cost)
+
+        if infraType is Village:
+            self.place_village_to_board(pos)
+            self.place_new_land(pos)
+        elif infraType is Town:
+            self.place_town_to_board(pos)
+        elif infraType is Path:
+            path = Path(pos, self)
+            self.paths.append(path)
+            self.game.mainBoard.set_square(pos, path)
+        else:
+            assert False, f'build infrastructure got bad infratype: {infraType}'
+
+    def place_town_to_board(self, pos: Pos) -> None:
+        settlement = self.game.mainBoard.get_square(pos)
+        assert isinstance(settlement, Village), f'cannot place town at {pos}'
+
+        # type checking does not like class swap -> explicitly ignoring
+        settlement.__class__ = Town  # type: ignore
+        settlement.name = 'town'
+
+        for p in [pos.up(2), pos.down(2)]:
+            slot = SettlementSlot(p, self)
+            self.game.mainBoard.set_square(p, slot)
+            slot.settlement = settlement
+            settlement.cards.append(slot)
+
+        self.game.mainBoard.refresh_square(pos)
+
+    def place_village_to_board(self, pos: Pos) -> None:
+        newVillage = Village(pos, self)
+        self.game.mainBoard.set_square(pos, newVillage)
+        self.settlements.append(newVillage)
+
+        for p in [pos.up(), pos.down()]:
+            slot = SettlementSlot(p, self)
+            self.game.mainBoard.set_square(p, slot)
+            slot.settlement = newVillage
+            newVillage.cards.append(slot)
 
     ####################################################################################################################
     #################   ACTION CARDS           #########################################################################
@@ -319,7 +373,7 @@ class Player(ABC):
         assert land.pos is not None
         self.game.mainBoard.refresh_square(land.pos)
 
-    def take_back_to_hand(self, card: Buildable):
+    def take_back_to_hand(self, card: Buildable) -> None:
         assert card.pos is not None and card.settlement is not None and card.player is self
 
         slot = SettlementSlot(card.pos, self)
@@ -362,71 +416,23 @@ class Player(ABC):
             print(f'tossed {toss}, action failed')
             return self.opponent
 
-    def lose_ambush_resources(self):
+    def lose_ambush_resources(self) -> None:
         for land in self.landscapeCards:
             if land.resource.value in STOLEN_AMBUSH_RESOURCES:
                 land.resourcesHeld = 0
+                assert land.pos is not None
                 self.game.mainBoard.refresh_square(land.pos)
 
-    ####################################################################################################################
-    #################   TO BE SORTED AND UNIT TESTED       #############################################################
-    ####################################################################################################################
+    def use_defence(self, action: str) -> bool:
+        assert action in DEFENCE_CARDS, f'there is no defence against {action}'
+        return self.card_in_hand(DEFENCE_CARDS[action]) and self.decide_use_defence(action)
 
-
-    def build_infrastructure(self, infraType: Type[Town | Village | Path]) -> None:
-        if self.game.infraCardsLeft[infraType] < 1:
-            print(f'no more cards {infraType} left')
-            return
-        if not self.can_cover_cost(infraType.cost):
-            print(f'you cannot afford this: {infraType}')
-            return
-
-        pos: Optional[Pos] = self.select_new_card_position(infraType)
-        if pos is None:
-            return
-
-        self.game.infraCardsLeft[infraType] -= 1
-        self.pay(infraType.cost)
-
-        if infraType is Village:
-            self.place_village_to_board(pos)
-            self.place_new_land(pos)
-        elif infraType is Town:
-            self.place_town_to_board(pos)
-        elif infraType is Path:
-            path = Path(pos, self)
-            self.paths.append(path)
-            self.game.mainBoard.set_square(pos, path)
+    def pay(self, cost: Cost | int) -> None:
+        self.game.display.print_msg('now you need to pay')
+        if isinstance(cost, Cost):
+            self.pay_specific(cost)
         else:
-            assert False, f'build infrastructure got bad infratype: {infraType}'
-
-    def place_village_to_board(self, pos: Pos) -> None:
-        newVillage = Village(pos, self)
-        self.game.mainBoard.set_square(pos, newVillage)
-        self.settlements.append(newVillage)
-        for p in [pos.up(), pos.down()]:
-            slot = SettlementSlot(p, self)
-            self.game.mainBoard.set_square(p, slot)
-            slot.settlement = newVillage
-            newVillage.cards.append(slot)
-
-    def place_town_to_board(self, pos: Pos) -> None:
-        newTown = Town(pos, self)
-        self.game.mainBoard.set_square(pos, newTown)
-        self.settlements.append(newTown)
-
-        for p in [pos.up(), pos.down()]:
-            slot = self.game.mainBoard.get_square(p)
-            assert isinstance(slot, SettlementSlot) or isinstance(slot, Buildable)
-            newTown.cards.append(slot)
-            slot.settlement = newTown
-
-        for p in [pos.up(2), pos.down(2)]:
-            slot = SettlementSlot(p, self)
-            self.game.mainBoard.set_square(p, slot)
-            slot.settlement = newTown
-            newTown.cards.append(slot)
-
+            self.pay_any(cost)
 
     def pay_specific(self, cost: Cost) -> None:
         costToPay = copy.copy(cost)
@@ -439,64 +445,60 @@ class Player(ABC):
 
     def pay_any(self, cost: int) -> None:
         while cost > 0:
-            land: Landscape = self.select_card_to_pay(None)
+            land: Landscape = self.select_card_to_pay()
             assert land.pos is not None
             cost -= 1
             land.resourcesHeld -= 1
             self.game.mainBoard.refresh_square(land.pos)
 
-    def pay(self, cost: Cost | int) -> None:
-        self.game.display.print_msg('now you need to pay')
-        if isinstance(cost, Cost):
-            return self.pay_specific(cost)
+    ####################################################################################################################
+    #################   REFILL HAND METHODS                #############################################################
+    ####################################################################################################################
+
+    def refill_hand_take_card(self, pile: Pile) -> None:
+        payToBrowse = 1 if self.has_browse_discount() else 2
+        if self.can_cover_cost(payToBrowse) and self.decide_browse_pile():
+            self.pay(payToBrowse)
+            card = self.select_card_from_choice(pile)
         else:
-            return self.pay_any(cost)
+            card = pile[0]
 
-    def use_defence(self, action: str) -> bool:
-        assert action in DEFENCE_CARDS, f'there is no defence against {action}'
-        defenceCard = DEFENCE_CARDS[action]
+        pile.remove(card)
+        self.cardsInHand.append(card)
+        self.refresh_hand_board()
 
-        return self.card_in_hand(defenceCard) and self.decide_use_defence(action)
+    def refill_hand_remove_card(self, pile: Pile) -> None:
+        card = self.select_card_to_throw_away()
+        self.cardsInHand.remove(card)
+        pile.append(card)
+        self.refresh_hand_board()
 
-    #TODO - refactor duplicated code
-    def refill_hand(self, canSwap: bool) -> None:
+    def refill_hand(self) -> None:
         maxCardsInHand = self.get_hand_cards_cnt()
         if len(self.cardsInHand) < maxCardsInHand:
             while len(self.cardsInHand) < maxCardsInHand:
                 pile = self.select_pile()
-                payToBrowse = 1 if self.has_browse_discount() else 2
-                if self.can_cover_cost(payToBrowse) and self.decide_browse_pile():
-                    self.pay(payToBrowse)
-                    self.get_card_from_choice(pile)
-                else:
-                    self.cardsInHand.append(pile.pop())
-                    self.refresh_hand_board()
+                self.refill_hand_take_card(pile)
         else:
             if len(self.cardsInHand) > maxCardsInHand:
                 while len(self.cardsInHand) > maxCardsInHand:
-                    idx = self.select_card_to_throw_away()
-                    self.cardsInHand.pop(idx)
-                    self.refresh_hand_board()
-            if canSwap and self.swap_one_card():
-                idx = self.select_card_to_throw_away()
-                removedCard = self.cardsInHand.pop(idx)
-                self.refresh_hand_board()
+                    pile = self.select_pile()
+                    self.refill_hand_remove_card(pile)
+            if self.decide_swap_one_card():
                 pile = self.select_pile()
-                payToBrowse = 1 if self.has_browse_discount() else 2
-                if self.can_cover_cost(payToBrowse) and self.decide_browse_pile():
-                    self.pay(payToBrowse)
-                    self.get_card_from_choice(pile)
-                else:
-                    self.cardsInHand.append(pile.pop(0))
-                    self.refresh_hand_board()
-                pile.append(removedCard)
+                self.refill_hand_remove_card(pile)
+                self.refill_hand_take_card(pile)
+
+    ####################################################################################################################
+    #################   ALL DECISIONS ARE MADE IN ABSTRACT METHODS      ################################################
+    ####################################################################################################################
 
     @abstractmethod
     def wait_for_ok(self) -> None:
         pass
 
     @abstractmethod
-    def get_card_from_choice(self, pile: Pile) -> None:
+    def select_card_from_choice(self, pile: Pile) -> Playable:
         pass
 
     @abstractmethod
@@ -504,7 +506,7 @@ class Player(ABC):
         pass
 
     @abstractmethod
-    def swap_one_card(self) -> bool:
+    def decide_swap_one_card(self) -> bool:
         pass
 
     @abstractmethod
@@ -512,7 +514,7 @@ class Player(ABC):
         pass
 
     @abstractmethod
-    def select_card_to_pay(self, resource: Optional[Cost]) -> Landscape:
+    def select_card_to_pay(self, resource: Optional[Cost]=None) -> Landscape:
         pass
 
     @abstractmethod
@@ -544,7 +546,7 @@ class Player(ABC):
         pass
 
     @abstractmethod
-    def select_card_to_throw_away(self) -> int:
+    def select_card_to_throw_away(self) -> Playable:
         pass
 
     @abstractmethod

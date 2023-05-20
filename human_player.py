@@ -66,25 +66,18 @@ class HumanPlayer(Player):
                 continue
             return self.game.cardPiles[pileIdx]
 
-    def get_card_from_choice(self, pile: Pile) -> None:
-        selectedCardIdx: Optional[int] = None
-        self.game.display_cards_on_board(pile, self.game.choiceBoard)
+    def select_card_from_choice(self, pile: Pile) -> Playable:
+        if self.cardsVisible:
+            self.game.display_cards_on_board(pile, self.game.choiceBoard)
 
-        while True:
-            click: MouseClick = self.game.display.get_mouse_click()
-            if selectedCardIdx is not None and self.button_clicked(click) == Button.OK.value:
-                card = pile.pop(selectedCardIdx)
-                self.cardsInHand.append(card)
-                self.refresh_hand_board()
-                return
+        click: MouseClick = self.game.get_filtered_click((ClickFilter(
+            board=self.game.choiceBoard,
+            cardType=Playable
+        ),))
 
-            if click.board is not self.game.choiceBoard or self.game.choiceBoard.get_square(click.pos) is None:
-                continue
-
-            cardIdx = click.board.to_int(click.pos)
-            card = pile[cardIdx]
-            self.game.select_card(card)
-            selectedCardIdx = cardIdx
+        card = click.board.get_square(click.pos)
+        assert isinstance(card, Playable), 'invalid card in choice'
+        return card
 
     def select_resource_to_trade_for(self) -> Optional[Resource]:
         while True:
@@ -332,7 +325,7 @@ class HumanPlayer(Player):
             if not self.game.is_protected_from_civil_war(card):
                 return card
 
-    def swap_one_card(self) -> bool:
+    def decide_swap_one_card(self) -> bool:
         self.game.display.print_msg('will you swap one card?')
         return self.ok_or_cancel()
 
@@ -340,10 +333,12 @@ class HumanPlayer(Player):
         self.game.display.print_msg('will you browse a pile?')
         return self.ok_or_cancel()
 
-    def select_card_to_throw_away(self) -> int:
+    def select_card_to_throw_away(self) -> Playable:
         self.game.display.print_msg('select card to throw away')
         click = self.game.get_filtered_click((ClickFilter(board=self.handBoard),))
-        return click.board.to_int(click.pos)
+        card = click.board.get_square(click.pos)
+        assert isinstance(card, Playable), 'wrong card type in hand'
+        return card
 
     def select_building_to_burn(self) -> Building:
         click = self.game.get_filtered_click((ClickFilter(

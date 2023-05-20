@@ -413,7 +413,6 @@ class Game:
             print(f'\n========  round {self.roundNo} ========')
             self.currentPlayer.throw_dice()
             self.currentPlayer.do_actions()
-            self.currentPlayer.refill_hand(True)
-            self.currentPlayer.opponent.refill_hand(False)
+            self.currentPlayer.refill_hand()
             self.currentPlayer = self.currentPlayer.opponent
             self.roundNo += 1

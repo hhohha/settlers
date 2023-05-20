@@ -32,7 +32,7 @@ class TestStack(unittest.TestCase):
         self.assertEqual(p.buildingsPlayed, [])
         self.assertEqual(p.settlements, [])
         self.assertEqual(p.paths, [])
-        self.assertEqual(p.handBoardVisible, False)
+        self.assertEqual(p.cardsVisible, False)
         self.assertEqual(p.midPos, Pos(7, 2))
         for idx, pos in enumerate([Pos(7, 1), Pos(7, 3), Pos(9, 1), Pos(9, 3), Pos(5, 1), Pos(5, 3)]):
             self.assertEqual(p.initialLandPos[idx], pos)
@@ -618,6 +618,7 @@ class TestStack(unittest.TestCase):
 
     def test_trade(self):
         p = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
+        sys.modules[Player.__module__].print = MagicMock()
 
         land = Landscape('sheep', Resource.SHEEP, 1)
         land.pos = Pos(1, 1)
@@ -631,6 +632,7 @@ class TestStack(unittest.TestCase):
 
         p.trade()
         self.assertEqual(p.get_resources_available(), Cost(sheep=1))
+        sys.modules[Player.__module__].print = print
 
     def give_resource(self, player: Player, cost: Cost):
         def find_land(p: Player, res: Resource) -> Optional[Landscape]:
@@ -683,3 +685,131 @@ class TestStack(unittest.TestCase):
         self.give_resource(p2, Cost(wood=1))
         self.assertTrue(p1.can_grab_resource_from_opponent())
 
+    def test_place_village_and_town(self):
+        p = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
+        p.place_village_to_board(Pos(2, 3))
+
+        self.assertEqual(len(p.settlements), 1)
+        newSettlement = p.settlements[0]
+        self.assertEqual(newSettlement.name, 'village')
+        self.assertEqual(len(newSettlement.cards) ,2)
+        for i in range(2):
+            slot = newSettlement.cards[i]
+            self.assertTrue(isinstance(slot, SettlementSlot))
+            self.assertIs(slot.settlement, newSettlement)
+
+        p.game.mainBoard.get_square = MagicMock(return_value=newSettlement)
+
+        p.place_town_to_board(Pos(2, 2))
+        self.assertTrue(isinstance(newSettlement, Town))
+        self.assertEqual(newSettlement.name, 'town')
+        self.assertEqual(len(newSettlement.cards), 4)
+
+        for i in range(4):
+            slot = newSettlement.cards[i]
+            self.assertTrue(isinstance(slot, SettlementSlot))
+            self.assertIs(slot.settlement, newSettlement)
+
+    def test_refill_hand_take_card(self):
+        p = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
+        pile = [
+            Building('warehouse', Cost(), True, 1, 1),
+            Action('bishop'),
+            Knight('gustav', Cost(), 1, 1),
+        ]
+
+        p.refill_hand_take_card(pile)
+        self.assertEqual(len(pile), 2)
+        self.assertEqual(len(p.cardsInHand), 1)
+        self.assertEqual(p.cardsInHand[0].name, 'warehouse')
+
+        p.can_cover_cost = MagicMock(return_value=True)
+        p.decide_browse_pile = MagicMock(return_value=True)
+        p.pay = MagicMock()
+        p.select_card_from_choice = MagicMock(return_value=pile[1])
+
+        p.refill_hand_take_card(pile)
+        self.assertEqual(len(pile), 1)
+        self.assertEqual(len(p.cardsInHand), 2)
+        self.assertEqual(p.cardsInHand[0].name, 'warehouse')
+        self.assertEqual(p.cardsInHand[1].name, 'gustav')
+
+    def test_refill_hand_remove_card(self):
+        p = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
+        pile = [Action('witch')]
+
+        p.cardsInHand = [
+            Building('warehouse', Cost(), True, 1, 1),
+            Action('bishop'),
+            Knight('gustav', Cost(), 1, 1),
+        ]
+
+        p.select_card_to_throw_away = MagicMock(return_value=p.cardsInHand[1])
+        p.refill_hand_remove_card(pile)
+
+        self.assertEqual(len(pile), 2)
+        self.assertEqual(pile[1].name, 'bishop')
+        self.assertEqual(len(p.cardsInHand), 2)
+        self.assertEqual(p.cardsInHand[0].name, 'warehouse')
+        self.assertEqual(p.cardsInHand[1].name, 'gustav')
+
+    def test_refill_hand(self):
+        p = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
+        pile = [
+            Building('warehouse', Cost(), True, 1, 1),
+            Action('bishop'),
+            Knight('gustav', Cost(), 1, 1),
+        ]
+        p.select_pile = MagicMock(return_value=pile)
+
+        p.refill_hand()
+        # hand: [warehouse, bishop, gustav]
+        # pile: []
+        self.assertEqual(len(pile), 0)
+        self.assertEqual(len(p.cardsInHand), 3)
+        self.assertEqual(list(map(lambda x: x.name, p.cardsInHand)), ['warehouse', 'bishop', 'gustav'])
+
+        pile2 = [
+            Building('church', Cost(), True, 1, 1),
+            Action('arson'),
+            Knight('konrad', Cost(), 1, 1),
+        ]
+
+        p.select_pile = MagicMock(return_value=pile2)
+        p.get_hand_cards_cnt = MagicMock(return_value=5)
+        p.refill_hand()
+        # hand: [warehouse, bishop, gustav, church, arson]
+        # pile: [konrad]
+
+        self.assertEqual(len(pile2), 1)
+        self.assertEqual(len(p.cardsInHand), 5)
+        self.assertEqual(list(map(lambda x: x.name, p.cardsInHand)), ['warehouse', 'bishop', 'gustav', 'church', 'arson'])
+        self.assertEqual(list(map(lambda x: x.name, pile2)), ['konrad'])
+
+
+        p.get_hand_cards_cnt = MagicMock(return_value=4)
+        p.decide_swap_one_card = MagicMock(return_value=False)
+        p.select_card_to_throw_away = MagicMock(return_value=p.cardsInHand[2])  # gustav
+        p.refill_hand()
+        # hand: [warehouse, bishop, church, arson]
+        # pile: [konrad, gustav]
+
+        self.assertEqual(len(pile2), 2)
+        self.assertEqual(len(p.cardsInHand), 4)
+        self.assertEqual(list(map(lambda x: x.name, p.cardsInHand)), ['warehouse', 'bishop', 'church', 'arson'])
+        self.assertEqual(list(map(lambda x: x.name, pile2)), ['konrad', 'gustav'])
+
+        p.decide_swap_one_card = MagicMock(return_value=True)
+        p.select_card_to_throw_away = MagicMock(return_value=p.cardsInHand[1])  # bishop
+        p.select_card_from_choice = MagicMock(return_value=pile2[1])            # gustav
+        p.can_cover_cost = MagicMock(return_value=True)
+        p.decide_browse_pile = MagicMock(return_value=True)
+        p.pay = MagicMock()
+
+        p.refill_hand()
+        # hand: [warehouse, church, arson, gustav]
+        # pile: [konrad, bishop]
+        self.assertEqual(len(p.cardsInHand), 4)
+        self.assertEqual(len(pile2), 2)
+        self.assertEqual(list(map(lambda x: x.name, p.cardsInHand)), ['warehouse', 'church', 'arson', 'gustav'])
+        self.assertEqual(list(map(lambda x: x.name, pile2)), ['konrad', 'bishop'])
