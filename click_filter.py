@@ -1,4 +1,4 @@
-from typing import Optional, Type, List, Callable, Tuple
+from typing import Optional, Type, Tuple
 from dataclasses import dataclass
 
 from board import Board
@@ -11,10 +11,8 @@ from util import MouseClick
 class ClickFilter:
     board: Optional[Board] = None
     cardType: None | Type | Tuple[Type, ...] = None
-    cardNames: Optional[List[str]] = None
-    cardNamesNeg: bool = False
+    cardName: Optional[str] = None
     player: Optional[Player] = None
-    check: Optional[Callable] = None
 
     def accepts(self, click: MouseClick) -> bool:
         if self.board is not None and self.board is not click.board:
@@ -28,12 +26,8 @@ class ClickFilter:
             return False
 
         assert isinstance(square, Card)
-        if self.cardNamesNeg:
-            if self.cardNames is not None and square.name in self.cardNames:
-                return False
-        else:
-            if self.cardNames is not None and square.name not in self.cardNames:
-                return False
+        if self.cardName is not None and square.name != self.cardName:
+            return False
 
         if self.player is not None:
             if not hasattr(square, 'player'):
@@ -41,8 +35,5 @@ class ClickFilter:
             assert isinstance(square, Settlement | Path | Playable | Landscape)
             if self.player is not square.player:
                 return False
-
-        if self.check is not None and not self.check():
-            return False
 
         return True

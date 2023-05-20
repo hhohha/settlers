@@ -597,6 +597,13 @@ class TestStack(unittest.TestCase):
         p.landscapeCards[3].resourcesHeld = 3
         p.landscapeCards[4].resourcesHeld = 1
 
+        p.landscapeCards[0].pos = Pos(0, 0)
+        p.landscapeCards[1].pos = Pos(0, 0)
+        p.landscapeCards[2].pos = Pos(0, 0)
+        p.landscapeCards[3].pos = Pos(0, 0)
+        p.landscapeCards[4].pos = Pos(0, 0)
+
+
         p.lose_ambush_resources()
         self.assertEqual(p.get_resources_available(), Cost(grain=3))
 

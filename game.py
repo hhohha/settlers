@@ -9,7 +9,7 @@ from card_data import CardData
 from human_player import HumanPlayer
 import config
 from player import Player
-from util import DiceEvents, Pos, MouseClick, MILLS_EFFECTS, Cost
+from util import DiceEvents, Pos, MILLS_EFFECTS, Cost
 from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable, Building, Buildable, SettlementSlot, \
     Knight, Fleet, Settlement
 from custom_types import Pile
@@ -64,23 +64,40 @@ class Game:
         smallSpace, bigSpace = config.CARD_IMG_SPACING, config.BIG_SPACE
         cardSize = self.mainBoard.squareSize
 
-        self.mainBoard.set_top_left(Pos(0, 0))
-        self.player1Board.set_top_left(Pos(self.mainBoard.size.x * (cardSize.x + 2 * smallSpace) + bigSpace,
-                                           (self.mainBoard.size.y - self.player1Board.size.y) * (
-                                                   cardSize.y + 2 * smallSpace)))
+        self.mainBoard.set_top_left(Pos(
+            x=0,
+            y=0
+        ))
 
-        self.player2Board.set_top_left(
-            Pos(self.mainBoard.size.x * (cardSize.x + 2 * smallSpace) + smallSpace + bigSpace, 0))
+        self.player1Board.set_top_left(Pos(
+            x=self.mainBoard.size.x * (cardSize.x + 2 * smallSpace) + bigSpace,
+            y=(self.mainBoard.size.y - self.player1Board.size.y) * (cardSize.y + 2 * smallSpace)
+        ))
 
-        self.choiceBoard.set_top_left(Pos(self.mainBoard.size.x * (cardSize.x + 2 * smallSpace) + smallSpace + bigSpace,
-                                          self.player2Board.bottomRight.y + 2 * bigSpace))
+        self.player2Board.set_top_left(Pos(
+            x=self.mainBoard.size.x * (cardSize.x + 2 * smallSpace) + smallSpace + bigSpace,
+            y=0
+        ))
 
-        self.bigCard.set_top_left(Pos(self.mainBoard.size.x * (cardSize.x + 2 * smallSpace) + smallSpace + bigSpace,
-                                      (
-                                              self.player1Board.topLeft.y + self.choiceBoard.bottomRight.y) // 2 - self.bigCard.squareSize.y // 2))
-        self.buttons.set_top_left(Pos(self.bigCard.bottomRight.x + bigSpace, self.bigCard.topLeft.y))
-        self.display.textTopLeft = Pos(self.choiceBoard.topLeft.x, self.choiceBoard.bottomRight.y + 2 * smallSpace)
+        self.choiceBoard.set_top_left(Pos(
+            x=self.mainBoard.size.x * (cardSize.x + 2 * smallSpace) + smallSpace + bigSpace,
+            y=self.player2Board.bottomRight.y + 2 * bigSpace
+        ))
 
+        self.bigCard.set_top_left(Pos(
+            x=self.mainBoard.size.x * (cardSize.x + 2 * smallSpace) + smallSpace + bigSpace,
+            y=(self.player1Board.topLeft.y + self.choiceBoard.bottomRight.y) // 2 - self.bigCard.squareSize.y // 2
+        ))
+
+        self.buttons.set_top_left(Pos(
+            x=self.bigCard.bottomRight.x + bigSpace,
+            y=self.bigCard.topLeft.y
+        ))
+
+        self.display.textTopLeft = Pos(
+            x=self.choiceBoard.topLeft.x,
+            y=self.choiceBoard.bottomRight.y + 2 * smallSpace
+        )
 
     def init_main_board_starting_cards(self):
         for pos in (Pos(x, y) for x in range(self.mainBoard.size.x) for y in range(self.mainBoard.size.y)):
@@ -121,8 +138,8 @@ class Game:
         for player in [self.currentPlayer, self.currentPlayer.opponent]:
             pile = player.opponent.select_pile(pile)
             player.opponent.get_card_from_choice(pile)
-            cardIdx = player.select_card_to_throw_away()
-            card = player.cardsInHand.pop(cardIdx)
+            card = player.select_card_to_throw_away()
+            player.cardsInHand.remove(card)
             pile.append(card)
             player.refresh_hand_board()
 
@@ -296,17 +313,6 @@ class Game:
     ####################################################################################################################
     #################                    ###############################################################################
     ####################################################################################################################
-
-    def get_filtered_click(self, clickFilters: Tuple[ClickFilter, ...] = ()) -> MouseClick:
-        while True:
-            click: MouseClick = self.display.get_mouse_click()
-            if click.board.get_square(click.pos) is None:
-                continue
-            if not clickFilters:
-                return click
-            for clickFilter in clickFilters:
-                if clickFilter.accepts(click):
-                    return click
 
     def is_victory(self) -> bool:
         return self.player1.get_victory_points() >= config.VICTORY_POINTS or self.player2.get_victory_points() >= config.VICTORY_POINTS

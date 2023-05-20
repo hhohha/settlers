@@ -1,12 +1,12 @@
 from __future__ import annotations
-from typing import Optional, TYPE_CHECKING, Type, List
+from typing import Optional, TYPE_CHECKING, Type, Tuple
 
 from click_filter import ClickFilter
 from config import MAX_LAND_RESOURCES
 from custom_types import Pile
 from enums import Button, DiceEvent, Resource
 from player import Player
-from util import Pos, MouseClick, RESOURCE_LIST, Cost, is_next_to
+from util import Pos, MouseClick, Cost, is_next_to
 from card import Landscape, Playable, Path, Town, Village, Settlement, Action, SettlementSlot, Buildable, Knight, Fleet, \
     Building
 
@@ -24,7 +24,17 @@ class HumanPlayer(Player):
 
     __repr__ = __str__
 
-    def button_clicked(self, click: MouseClick) -> int:
+    def _get_filtered_click(self, clickFilter: Tuple[ClickFilter, ...] | ClickFilter) -> MouseClick:
+        while True:
+            click: MouseClick = self.game.display.get_mouse_click()
+            if isinstance(clickFilter, ClickFilter) and clickFilter.accepts(click):
+                    return click
+            else:
+                for f in clickFilter:
+                    if f.accepts(click):
+                        return click
+
+    def _button_clicked(self, click: MouseClick) -> int:
         board, square = click.tuple()
         if board is not self.game.buttons:
             return Button.NO_BUTTON.value
@@ -32,34 +42,46 @@ class HumanPlayer(Player):
         return square.x + square.y * self.game.buttons.size.x
 
     def initial_land_setup(self) -> None:
-        landSelected: Optional[Pos] = None
+        landSelected: Optional[Landscape] = None
         self.game.display.print_msg('setup land cards')
 
         while True:
-            click = self.game.display.get_mouse_click()
+            click = self._get_filtered_click((
+                ClickFilter(board=self.game.mainBoard, cardType=Landscape, player=self),
+                ClickFilter(board=self.game.buttons)
+            ))
 
-            if self.button_clicked(click) == Button.OK.value:
+            if self._button_clicked(click) == Button.OK.value:
+                # ok button - we're done
                 return
+            elif self._button_clicked(click) == Button.CANCEL.value:
+                # cancel button - clears previous selection
+                landSelected = None
+                continue
+            elif self._button_clicked(click) != Button.NO_BUTTON.value:
+                # different button was clicked - that does nothing
+                continue
 
-            board, pos = click.tuple()
-            card = board.get_square(pos)
-            if board is self.game.mainBoard and isinstance(card, Landscape) and card.player is self:
-                if landSelected is None:
-                    landSelected = pos
-                else:
-                    board.set_square(pos, board.get_square(landSelected))
-                    board.set_square(landSelected, card)
-                    landSelected = None
+            # now it's clear that button has not been clicked, so it must have been landscape
+            land = click.board.get_square(click.pos)
+            assert isinstance(land, Landscape) and land.pos is not None
+
+            if landSelected is None:
+                landSelected = land
             else:
+                click.board.set_square(land.pos, landSelected)
+                click.board.set_square(landSelected.pos, land)
                 landSelected = None
 
     def select_pile(self, unavailablePile: Optional[Pile]=None) -> Pile:
         self.game.display.print_msg('select a pile')
 
         while True:
-            board, pos = self.game.get_filtered_click(
-                (ClickFilter(board=self.game.mainBoard, cardNames=['back']),)
-            ).tuple()
+            board, pos = self._get_filtered_click(ClickFilter(
+                board=self.game.mainBoard,
+                cardName='back'
+            )).tuple()
+
             pileIdx = pos.x - board.size.x + len(self.game.cardPiles)
             if self.game.cardPiles[pileIdx] is unavailablePile:
                 print('this pile is already chosen, select another')
@@ -70,10 +92,10 @@ class HumanPlayer(Player):
         if self.cardsVisible:
             self.game.display_cards_on_board(pile, self.game.choiceBoard)
 
-        click: MouseClick = self.game.get_filtered_click((ClickFilter(
+        click: MouseClick = self._get_filtered_click(ClickFilter(
             board=self.game.choiceBoard,
             cardType=Playable
-        ),))
+        ))
 
         card = click.board.get_square(click.pos)
         assert isinstance(card, Playable), 'invalid card in choice'
@@ -81,13 +103,13 @@ class HumanPlayer(Player):
 
     def select_resource_to_trade_for(self) -> Optional[Resource]:
         while True:
-            click = self.game.get_filtered_click((
+            click = self._get_filtered_click((
                 ClickFilter(player=self, cardType=Landscape),
                 ClickFilter(board=self.game.buttons)
             ))
 
             if click.board is self.game.buttons:
-                if self.button_clicked(click) == Button.CANCEL.value:
+                if self._button_clicked(click) == Button.CANCEL.value:
                     return None
                 else:
                     continue
@@ -99,10 +121,10 @@ class HumanPlayer(Player):
 
     def select_resource_to_purchase(self) -> Landscape:
         while True:
-            click = self.game.get_filtered_click((ClickFilter(
+            click = self._get_filtered_click(ClickFilter(
                 player=self,
                 cardType=Landscape
-            ),))
+            ))
 
             card = click.board.get_square(click.pos)
             assert isinstance(card, Landscape), f'expected Landscape'
@@ -126,8 +148,9 @@ class HumanPlayer(Player):
         ownLandSelected: Optional[Landscape] = None
 
         while True:
-            click = self.game.get_filtered_click((
-                ClickFilter(board=self.game.mainBoard, cardNames=RESOURCE_LIST),
+            click = self._get_filtered_click(ClickFilter(
+                board=self.game.mainBoard,
+                cardType=Landscape
             ))
 
             square = click.board.get_square(click.pos)
@@ -153,8 +176,9 @@ class HumanPlayer(Player):
         opponentLandSelected: Optional[Landscape] = None
 
         while True:
-            click = self.game.get_filtered_click((
-                ClickFilter(board=self.game.mainBoard, cardNames=RESOURCE_LIST),
+            click = self._get_filtered_click(ClickFilter(
+                board=self.game.mainBoard,
+                cardType=Landscape
             ))
 
             square = click.board.get_square(click.pos)
@@ -175,12 +199,12 @@ class HumanPlayer(Player):
     def pick_any_resource(self) -> None:
         self.game.display.print_msg('pick a resource')
         while True:
-            click = self.game.get_filtered_click(
-                (ClickFilter(board=self.game.mainBoard, cardNames=RESOURCE_LIST, player=self),
-                ClickFilter(board=self.game.buttons))
-            )
+            click = self._get_filtered_click((
+                ClickFilter(board=self.game.mainBoard, cardType=Landscape, player=self),
+                ClickFilter(board=self.game.buttons)
+            ))
 
-            if self.button_clicked(click) == Button.CANCEL.value:
+            if self._button_clicked(click) == Button.CANCEL.value:
                 return
 
             if click.board is not self.game.mainBoard:
@@ -199,8 +223,8 @@ class HumanPlayer(Player):
 
     def wait_for_ok(self):
         while True:
-            click = self.game.get_filtered_click()
-            if self.button_clicked(click) == Button.OK.value:
+            click = self._get_filtered_click(ClickFilter(board=self.game.buttons))
+            if self._button_clicked(click) == Button.OK.value:
                 return
 
     def decide_use_defence(self, againstCard: str) -> bool:
@@ -208,22 +232,20 @@ class HumanPlayer(Player):
         return self.ok_or_cancel()
 
     def select_card_to_steal_by_spy(self) -> Knight | Fleet | Action:
-        click = self.game.get_filtered_click((ClickFilter(
+        click = self._get_filtered_click(ClickFilter(
             board=self.game.choiceBoard,
             cardType=(Fleet, Knight, Action)
-        ),))
+        ))
         unit = click.board.get_square(click.pos)
         assert isinstance(unit, (Knight, Fleet)), f'spy attempted to steel a card of type {type(unit)}'
         return unit
 
-    def toss_dice_or_alchemist(self) -> bool:
+    def decide_dice_or_alchemist(self) -> bool:
         return self.ok_or_cancel()
 
     def use_alchemist(self) -> int:
         self.game.display.print_msg('choose yield')
-        click = self.game.get_filtered_click((ClickFilter(
-            board=self.game.buttons
-        ),))
+        click = self._get_filtered_click(ClickFilter(board=self.game.buttons))
 
         self.remove_action_card('alchemist')
         return self.game.buttons.to_int(click.pos) + 1
@@ -235,10 +257,10 @@ class HumanPlayer(Player):
     def select_new_land(self) -> Landscape:
         self.game.display_cards_on_board(self.game.landscapeCards, self.game.choiceBoard)
 
-        click = self.game.get_filtered_click((ClickFilter(
+        click = self._get_filtered_click(ClickFilter(
             board=self.game.choiceBoard,
             cardType=Landscape
-        ),))
+        ))
 
         land = click.board.get_square(click.pos)
         assert isinstance(land, Landscape), f'expected landscape'
@@ -256,7 +278,7 @@ class HumanPlayer(Player):
         diceNumber: int
         if 'alchemist' in map(lambda x: x.name, self.cardsInHand):
             self.game.display.print_msg('click to toss yield dice or use alchemist')
-            tossDice = self.toss_dice_or_alchemist()
+            tossDice = self.decide_dice_or_alchemist()
             if not tossDice:
                 self.wait_for_ok()
                 diceNumber = self.game.throw_yield_dice()
@@ -274,9 +296,11 @@ class HumanPlayer(Player):
     def select_card_to_pay(self, cost: Optional[Cost]=None) -> Landscape:
         self.game.display.print_msg('select card to pay')
         while True:
-            click = self.game.get_filtered_click(
-                (ClickFilter(board=self.game.mainBoard, cardNames=RESOURCE_LIST, player=self),)
-            )
+            click = self._get_filtered_click(ClickFilter(
+                board=self.game.mainBoard,
+                cardType=Landscape,
+                player=self
+            ))
             card = click.board.get_square(click.pos)
             if not isinstance(card, Landscape):
                 continue
@@ -287,12 +311,15 @@ class HumanPlayer(Player):
     def select_new_card_position(self, infraType: Type[Village | Path | Town | Buildable], townOnly=False) -> Optional[Pos]:
         self.game.display.print_msg('choose card location')
         while True:
-            click = self.game.get_filtered_click()
+            click = self._get_filtered_click((
+              ClickFilter(board=self.game.mainBoard),
+              ClickFilter(board=self.game.buttons)
+            ))
             card = click.board.get_square(click.pos)
             if card is None:
                 continue
 
-            if self.button_clicked(click) == Button.CANCEL.value:
+            if self._button_clicked(click) == Button.CANCEL.value:
                 return None
 
             if infraType == Village:
@@ -309,15 +336,14 @@ class HumanPlayer(Player):
                     if townOnly and isinstance(card.settlement, Village):
                         print('this card needs to be placed in a town')
                         continue
-                    print(f'looks good, returning valid position: {click.pos}')
                     return click.pos
             else:
                 raise ValueError(f'unknown infra type: {infraType}')
 
-    def select_opponents_unit_to_remove(self) -> Buildable:
+    def select_opponents_unit_to_remove(self) -> Knight | Fleet:
         self.game.display.print_msg('select opponents knight or fleet to remove')
         while True:
-            card = self.game.get_filtered_click((
+            card = self._get_filtered_click((
                 ClickFilter(board=self.game.mainBoard, player=self.opponent, cardType=Knight),
                 ClickFilter(board=self.game.mainBoard, player=self.opponent, cardType=Fleet)
             ))
@@ -335,38 +361,38 @@ class HumanPlayer(Player):
 
     def select_card_to_throw_away(self) -> Playable:
         self.game.display.print_msg('select card to throw away')
-        click = self.game.get_filtered_click((ClickFilter(board=self.handBoard),))
+        click = self._get_filtered_click(ClickFilter(board=self.handBoard))
         card = click.board.get_square(click.pos)
         assert isinstance(card, Playable), 'wrong card type in hand'
         return card
 
     def select_building_to_burn(self) -> Building:
-        click = self.game.get_filtered_click((ClickFilter(
+        click = self._get_filtered_click(ClickFilter(
             board=self.game.mainBoard,
             player=self.opponent,
             cardType=Building
-        ),))
+        ))
 
         card = click.board.get_square(click.pos)
         assert isinstance(card, Building), f'selected card cannot be burnt: {card}'
         return card
 
     def select_knight_to_kill(self) -> Knight:
-        click = self.game.get_filtered_click((ClickFilter(
+        click = self._get_filtered_click(ClickFilter(
             board=self.game.mainBoard,
             player=self.opponent,
             cardType=Knight
-        ),))
+        ))
 
         card = click.board.get_square(click.pos)
         assert isinstance(card, Knight), f'selected card cannot be killed: {card}'
         return card
 
     def select_opponents_card_to_discard(self) -> Playable:
-        click = self.game.get_filtered_click((ClickFilter(
+        click = self._get_filtered_click(ClickFilter(
             board=self.game.choiceBoard,
             cardType=Playable
-        ),))
+        ))
         card = click.board.get_square(click.pos)
         assert isinstance(card, Playable), f'choice board has invalid content'
         return card
@@ -374,10 +400,10 @@ class HumanPlayer(Player):
     def trade_with_caravan(self) -> None:
         while True:
             self.game.display.print_msg('select a resource to get')
-            click = self.game.get_filtered_click((ClickFilter(
+            click = self._get_filtered_click(ClickFilter(
                 player=self,
                 cardType=Landscape
-            ),))
+            ))
 
             landToGet = click.board.get_square(click.pos)
             assert isinstance(landToGet, Landscape), f'expected Landscape'
@@ -385,10 +411,10 @@ class HumanPlayer(Player):
                 continue
 
             self.game.display.print_msg('select a resource to pay with')
-            click = self.game.get_filtered_click((ClickFilter(
+            click = self._get_filtered_click(ClickFilter(
                 player=self,
                 cardType=Landscape
-            ),))
+            ))
 
             landToPay = click.board.get_square(click.pos)
             assert isinstance(landToPay, Landscape), f'expected Landscape'
@@ -404,21 +430,25 @@ class HumanPlayer(Player):
 
     def ok_or_cancel(self) -> bool:
         while True:
-            click = self.game.get_filtered_click()
-            if self.button_clicked(click) == Button.OK.value:
+            click = self._get_filtered_click(ClickFilter(board=self.game.buttons))
+            if self._button_clicked(click) == Button.OK.value:
                 return True
-            if self.button_clicked(click) == Button.CANCEL.value:
+            if self._button_clicked(click) == Button.CANCEL.value:
                 return False
 
     def do_actions(self) -> None:
         while True:
             self.game.display.print_msg('do something')
-            click = self.game.get_filtered_click()
+            click = self._get_filtered_click((
+                ClickFilter(board=self.game.mainBoard),
+                ClickFilter(board=self.game.buttons),
+                ClickFilter(board=self.handBoard)
+            ))
             card = click.board.get_square(click.pos)
             if card is None:
                 continue
 
-            if self.button_clicked(click) == Button.END_TURN.value:
+            if self._button_clicked(click) == Button.END_TURN.value:
                 return
             elif click.board is self.game.mainBoard and card.name == 'back_path':
                 self.build_infrastructure(Path)
@@ -428,7 +458,7 @@ class HumanPlayer(Player):
                 self.build_infrastructure(Village)
             elif click.board is self.handBoard and isinstance(card, Playable):
                 self.play_card_from_hand(card)
-            elif self.button_clicked(click) == Button.TRADE.value:
+            elif self._button_clicked(click) == Button.TRADE.value:
                 self.trade()
             elif click.board is self.game.mainBoard and isinstance(card, Playable):
                 pass  # take card back
