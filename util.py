@@ -1,10 +1,13 @@
 from __future__ import annotations
 from typing import Union, Tuple, TYPE_CHECKING, Dict, Type
 from dataclasses import dataclass
+
+import config
 from config import RESOURCE_LIST
 from enums import DiceEvent, Resource
 if TYPE_CHECKING:
     from board import Board
+    from card import Knight, Fleet
 
 MILLS_EFFECTS: Dict[Resource, str] = {
     Resource.GRAIN: 'mill',
@@ -19,6 +22,13 @@ def is_next_to(board: Board, pos: Pos, cardType: Type) -> bool:
         return True
 
     return pos.x - 1 >= 0 and isinstance(board.get_square(pos.left()), cardType)
+
+def is_protected_from_civil_war(card: Knight | Fleet) -> bool:
+    for protection in config.CIVIL_WAR_PROTECTION:
+        assert card.settlement is not None
+        if protection in map(lambda c: c.name, card.settlement.cards):
+            return True
+    return False
 
 @dataclass(frozen=False)
 class Cost:

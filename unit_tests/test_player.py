@@ -172,8 +172,8 @@ class TestStack(unittest.TestCase):
 
         p.fleetPlayed.append(Fleet('fleet1', Cost(), Resource.WOOD, 1))
         p.fleetPlayed.append(Fleet('fleet2', Cost(), Resource.BRICK, 1))
-        p.buildingsPlayed.append(Building('buliding1', Cost(), True, 1, 1))
-        p.buildingsPlayed.append(Building('buliding1', Cost(), False, 0, 3))
+        p.buildingsPlayed.append(Building('building1', Cost(), True, 1, 1))
+        p.buildingsPlayed.append(Building('building1', Cost(), False, 0, 3))
         self.assertEqual(p.get_trade_strength(), 6)
 
     def test_get_battle_strength(self):
@@ -820,3 +820,19 @@ class TestStack(unittest.TestCase):
         self.assertEqual(len(pile2), 2)
         self.assertEqual(list(map(lambda x: x.name, p.cardsInHand)), ['warehouse', 'church', 'arson', 'gustav'])
         self.assertEqual(list(map(lambda x: x.name, pile2)), ['konrad', 'bishop'])
+
+    def test_has_unit_to_remove_in_civil_war(self):
+        p = Player(self.gameMock, self.handBoardMock, 1, False, Pos(2, 2))
+        
+        self.assertFalse(p.has_unit_to_remove_in_civil_war())
+
+        town = Town(Pos(1, 1), p)
+        k = Knight('alex', Cost(), 0, 0)
+        k.settlement = town
+        town.cards.append(k)
+        p.knightsPlayed.append(k)
+
+        self.assertTrue(p.has_unit_to_remove_in_civil_war())
+
+        town.cards.append(Building('church', Cost(), True, 1, 1))
+        self.assertFalse(p.has_unit_to_remove_in_civil_war())

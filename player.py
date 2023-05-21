@@ -9,7 +9,7 @@ from card import Action, Buildable, Building, Playable, SettlementSlot, Village,
 from config import BROWSE_DISCOUNT_BUILDINGS, CARDS_INCREASING_HAND_CNT, STOLEN_AMBUSH_RESOURCES, ADVANCE_BUILDINGS, \
     MAX_LAND_RESOURCES
 from enums import Resource
-from util import Pos, Cost, DEFENCE_CARDS
+from util import Pos, Cost, DEFENCE_CARDS, is_protected_from_civil_war
 
 if TYPE_CHECKING:
     from card import Landscape
@@ -133,6 +133,15 @@ class Player(ABC):
                 resourcesCanGive.add(land.resource)
 
         return bool(resourcesCanReceive.intersection(resourcesCanGive))
+
+    def has_unit_to_remove_in_civil_war(self) -> bool:
+        for knight in self.knightsPlayed:
+            if not is_protected_from_civil_war(knight):
+                return True
+        for fleet in self.fleetPlayed:
+            if not is_protected_from_civil_war(fleet):
+                return True
+        return False
 
     ####################################################################################################################
     #################   CARD PLACEMENT         #########################################################################

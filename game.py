@@ -9,13 +9,14 @@ from card_data import CardData
 from human_player import HumanPlayer
 import config
 from player import Player
-from util import DiceEvents, Pos, MILLS_EFFECTS, Cost
+from util import DiceEvents, Pos, MILLS_EFFECTS, Cost, is_protected_from_civil_war
 from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable, Building, Buildable, SettlementSlot, \
     Knight, Fleet, Settlement
 from custom_types import Pile
 
 
 class Game:
+    # TODO - finish unit test
     def __init__(self):
         # prepare all boards
         self.mainBoard: Board = Board(Pos(*config.MAIN_BOARD_SQUARES), Pos(*config.CARD_IMG_SIZE_SMALL))
@@ -60,6 +61,7 @@ class Game:
     #################   INITIALIZATION   ###############################################################################
     ####################################################################################################################
 
+    # TODO - unit test?
     def boards_arrange(self) -> None:
         smallSpace, bigSpace = config.CARD_IMG_SPACING, config.BIG_SPACE
         cardSize = self.mainBoard.squareSize
@@ -99,6 +101,7 @@ class Game:
             y=self.choiceBoard.bottomRight.y + 2 * smallSpace
         )
 
+    # TODO - unit test
     def init_main_board_starting_cards(self):
         for pos in (Pos(x, y) for x in range(self.mainBoard.size.x) for y in range(self.mainBoard.size.y)):
             self.mainBoard.set_square(pos, MetaCard('empty'))
@@ -119,7 +122,7 @@ class Game:
         for x in range(self.mainBoard.size.x - len(self.cardPiles), self.mainBoard.size.x):
             self.mainBoard.set_square(Pos(x, 5), MetaCard('back'))
 
-
+    # TODO - unit test
     def prepare_landscape_cards(self) -> List[Landscape]:
         landCards: List[Landscape] = []
         for card in CardData.create_landscape_cards(self.player1, self.player2):
@@ -136,23 +139,32 @@ class Game:
     def card_event_builder(self) -> None:
         pile: Optional[Pile] = None
         for player in [self.currentPlayer, self.currentPlayer.opponent]:
-            pile = player.opponent.select_pile(pile)
-            player.opponent.get_card_from_choice(pile)
+            pile = player.select_pile(pile)
+
+            card = player.select_card_from_choice(pile)
+            player.cardsInHand.append(card)
+            pile.remove(card)
+
             card = player.select_card_to_throw_away()
             player.cardsInHand.remove(card)
             pile.append(card)
-            player.refresh_hand_board()
 
+            player.refresh_hand_board()
 
     def card_event_civil_war(self) -> None:
         for player in [self.currentPlayer, self.currentPlayer.opponent]:
-            if self.can_remove_unit_civil_war(player.opponent):
+            if player.opponent.has_unit_to_remove_in_civil_war():
                 print(f'player {player.opponent} has something to be removed')
                 cardToRemove: Buildable = player.select_opponents_unit_to_remove()
                 print(f'selected card: {cardToRemove.name}, pos: {cardToRemove.pos}')
 
                 player.take_back_to_hand(cardToRemove)
-                # TODO - refill hand (remove excess card)
+                if player.get_hand_cards_cnt() < len(player.cardsInHand):
+                    pile = player.select_pile()
+                    card = player.select_card_to_throw_away()
+                    player.cardsInHand.remove(card)
+                    pile.append(card)
+                    player.refresh_hand_board()
             else:
                 print(f'player {player.opponent} has nothing to be removed')
 
@@ -316,22 +328,6 @@ class Game:
 
     def is_victory(self) -> bool:
         return self.player1.get_victory_points() >= config.VICTORY_POINTS or self.player2.get_victory_points() >= config.VICTORY_POINTS
-
-    def is_protected_from_civil_war(self, card: Knight | Fleet) -> bool:
-        for protection in config.CIVIL_WAR_PROTECTION:
-            assert card.settlement is not None
-            if protection in map(lambda c: c.name, card.settlement.cards):
-                return True
-        return False
-
-    def can_remove_unit_civil_war(self, player: Player) -> bool:
-        for knight in player.knightsPlayed:
-            if not self.is_protected_from_civil_war(knight):
-                return True
-        for fleet in player.fleetPlayed:
-            if not self.is_protected_from_civil_war(fleet):
-                return True
-        return False
 
     def remove_card_from_board(self, card: Buildable) -> None:
         assert card.pos is not None and card.settlement is not None and card.player is not None
