@@ -1,7 +1,6 @@
 import random
-from typing import List, Optional, Tuple, Iterator
+from typing import List, Optional, Iterator
 from board import Board
-from click_filter import ClickFilter
 from computer_player import ComputerPlayer
 from display_handler import DisplayHandler
 from enums import DiceEvent, Resource
@@ -9,9 +8,8 @@ from card_data import CardData
 from human_player import HumanPlayer
 import config
 from player import Player
-from util import DiceEvents, Pos, MILLS_EFFECTS, Cost, is_protected_from_civil_war
-from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable, Building, Buildable, SettlementSlot, \
-    Knight, Fleet, Settlement
+from util import DiceEvents, Pos, MILLS_EFFECTS, Cost
+from card import Card, Event, Landscape, Village, Town, Path, MetaCard, Playable, Building, Buildable, SettlementSlot, Settlement
 from custom_types import Pile
 
 
@@ -158,13 +156,13 @@ class Game:
                 cardToRemove: Buildable = player.select_opponents_unit_to_remove()
                 print(f'selected card: {cardToRemove.name}, pos: {cardToRemove.pos}')
 
-                player.take_back_to_hand(cardToRemove)
-                if player.get_hand_cards_cnt() < len(player.cardsInHand):
-                    pile = player.select_pile()
-                    card = player.select_card_to_throw_away()
-                    player.cardsInHand.remove(card)
+                player.opponent.take_back_to_hand(cardToRemove)
+                if player.opponent.get_hand_cards_cnt() < len(player.opponent.cardsInHand):
+                    pile = player.opponent.select_pile()
+                    card = player.opponent.select_card_to_throw_away()
+                    player.opponent.cardsInHand.remove(card)
                     pile.append(card)
-                    player.refresh_hand_board()
+                    player.opponent.refresh_hand_board()
             else:
                 print(f'player {player.opponent} has nothing to be removed')
 
