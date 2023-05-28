@@ -166,12 +166,13 @@ class Game:
             else:
                 print(f'player {player.opponent} has nothing to be removed')
 
+    # TODO - unit test
     def card_event_rich_year(self) -> None:
         for player in [self.currentPlayer, self.currentPlayer.opponent]:
             for land in player.landscapeCards:
                 land.resourcesHeld = min(self.get_neighboring_warehouse_cnt(land) + land.resourcesHeld,
                                          config.MAX_LAND_RESOURCES)
-
+    # TODO - unit test
     def card_event_advance(self) -> None:
         for player in [self.currentPlayer, self.currentPlayer.opponent]:
             player.get_advance_resource_cnt()
@@ -179,7 +180,7 @@ class Game:
     def card_event_new_year(self) -> None:
         random.shuffle(self.eventCards)
 
-
+    # TODO - unit test
     def card_event_conflict(self) -> None:
         player1Strength = self.player1.get_battle_strength()
         player2Strength = self.player2.get_battle_strength()
@@ -204,7 +205,7 @@ class Game:
             winner.opponent.cardsInHand.remove(card)
             pile.append(card)
 
-
+    # TODO - unit test
     def get_land_settlements(self, land: Landscape) -> Iterator[Settlement]:
         assert land.pos is not None and land.player is not None
         for x in [land.pos.x + 1, land.pos.x - 1]:
@@ -213,12 +214,7 @@ class Game:
                 if isinstance(card, Settlement):
                     yield card
 
-    def is_land_protected_from_plaque(self, land: Landscape) -> bool:
-        for settlement in land.settlements:
-            if 'church' in map(lambda x: x.name, settlement.cards):
-                return True
-        return False
-
+    # TODO - unit test
     def card_event_plaque(self) -> None:
         print('event card: plaque')
         for player in [self.currentPlayer, self.currentPlayer.opponent]:
@@ -230,7 +226,6 @@ class Game:
                 if not self.is_land_protected_from_plaque(land):
                     land.resourcesHeld = max(0, land.resourcesHeld - 1)
                     self.mainBoard.refresh_square(land.pos)
-
 
     def card_event(self):
         event: Event = self.eventCards.pop(0)
@@ -258,6 +253,7 @@ class Game:
     #################   DICE EVENTS      ###############################################################################
     ####################################################################################################################
 
+    # TODO - unit test
     def handle_dice_events(self, event: DiceEvent):
         if event == DiceEvent.TOURNAMENT:
             self.event_tournament()
@@ -272,7 +268,7 @@ class Game:
         else:
             raise ValueError(f'unknown dice event: {event}')
 
-
+    # TODO - unit test
     def event_tournament(self) -> None:
         player1Strength = self.player1.get_tournament_strength()
         player2Strength = self.player2.get_tournament_strength()
@@ -289,7 +285,7 @@ class Game:
         else:
             print('tournament has no winner')
 
-
+    # TODO - unit test
     def event_trade_profit(self) -> None:
         player1Profit = self.player1.get_trade_strength()
         player2Profit = self.player2.get_trade_strength()
@@ -309,12 +305,11 @@ class Game:
 
         winner.grab_any_resource_if_possible()
 
-
     def event_good_harvest(self) -> None:
         self.player1.pick_any_resource()
         self.player2.pick_any_resource()
 
-
+    # TODO - unit test
     def event_ambush(self) -> None:
         for player in [self.player1, self.player2]:
             if player.get_unprotected_resources_cnt() > config.AMBUSH_MAX_RESOURCES:
@@ -324,9 +319,11 @@ class Game:
     #################                    ###############################################################################
     ####################################################################################################################
 
+    # TODO - unit test
     def is_victory(self) -> bool:
         return self.player1.get_victory_points() >= config.VICTORY_POINTS or self.player2.get_victory_points() >= config.VICTORY_POINTS
 
+    # TODO - unit test
     def remove_card_from_board(self, card: Buildable) -> None:
         assert card.pos is not None and card.settlement is not None and card.player is not None
         slot = SettlementSlot(card.pos, card.player)
@@ -338,20 +335,14 @@ class Game:
     def select_card(self, card: Card):
         self.bigCard.set_square(Pos(0, 0), card)
 
+    # TODO - unit test
     def display_cards_on_board(self, pile: Pile | List[Landscape], board: Board) -> None:
         board.clear()
         for idx, card in enumerate(pile):
             board.set_square(board.to_pos(idx), card)
 
-    def throw_yield_dice(self) -> int:
-        return random.randint(1, 6)
-
     def get_neighboring_warehouse_cnt(self, land: Landscape) -> int:
-        cnt = 0
-        for b in self.get_land_neighbors(land):
-            if b.name == 'warehouse':
-                cnt += 1
-        return cnt
+        return len([True for card in self.get_land_neighbors(land) if card.name == 'warehouse'])
 
     def is_protected_by_warehouse(self, land: Landscape) -> bool:
         return 'warehouse' in map(lambda b: b.name, self.get_land_neighbors(land))
@@ -373,15 +364,11 @@ class Game:
                 retLst.append(square)
         return retLst
 
-    # TODO - refactor
-    def get_land_yield(self, card: Landscape) -> int:
-        if card.resource == Resource.GOLD:
+    def get_land_yield(self, land: Landscape) -> int:
+        if land.resource == Resource.GOLD:
             return 1
-        buildingNeeded = MILLS_EFFECTS[card.resource]
-        # TODO this double isinstance is ugly - improve it somehow
-        buildingsAvailable = filter(lambda b: isinstance(b, Building), self.get_land_neighbors(card))
-        return 2 if buildingNeeded in map(lambda b: isinstance(b, Building) and b.name,
-                                          buildingsAvailable) else 1
+        bonusBuilding = MILLS_EFFECTS[land.resource]
+        return 2 if bonusBuilding in [b.name for b in self.get_land_neighbors(land) if isinstance(b, Building)] else 1
 
     def land_yield(self, number: int):
         for player in [self.player1, self.player2]:
@@ -390,9 +377,6 @@ class Game:
                     land.resourcesHeld = min(land.resourcesHeld + self.get_land_yield(land), config.MAX_LAND_RESOURCES)
                     assert land.pos is not None
                     self.mainBoard.refresh_square(land.pos)
-
-    def throw_event_dice(self) -> DiceEvent:
-        return DiceEvents[random.randint(1, 6)]
 
     def debug_give_resource(self, player: Player, cost: Cost):
         for card in player.landscapeCards:

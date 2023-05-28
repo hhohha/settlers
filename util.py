@@ -1,13 +1,13 @@
 from __future__ import annotations
 from typing import Union, Tuple, TYPE_CHECKING, Dict, Type
 from dataclasses import dataclass
-
+from random import randint
 import config
 from config import RESOURCE_LIST
 from enums import DiceEvent, Resource
 if TYPE_CHECKING:
     from board import Board
-    from card import Knight, Fleet
+    from card import Knight, Fleet, Landscape
 
 MILLS_EFFECTS: Dict[Resource, str] = {
     Resource.GRAIN: 'mill',
@@ -16,6 +16,20 @@ MILLS_EFFECTS: Dict[Resource, str] = {
     Resource.SHEEP: 'spinning_mill',
     Resource.WOOD: 'sawmill'
 }
+
+
+# TODO - unit test
+def is_land_protected_from_plaque(self, land: Landscape) -> bool:
+    for settlement in land.settlements:
+        if 'church' in map(lambda x: x.name, settlement.cards):
+            return True
+    return False
+
+def throw_yield_dice() -> int:
+    return randint(1, 6)
+
+def throw_event_dice() -> DiceEvent:
+    return DiceEvents[randint(1, 6)]
 
 def is_next_to(board: Board, pos: Pos, cardType: Type) -> bool:
     if pos.x + 1 < board.size.x and isinstance(board.get_square(pos.right()), cardType):

@@ -1,6 +1,7 @@
 import unittest, sys
 from unittest.mock import MagicMock
-from card import Action, Fleet, Knight, Building, Town, SettlementSlot
+
+from card import Action, Fleet, Knight, Building, Town, SettlementSlot, Landscape
 from enums import Resource
 from util import Cost, Pos
 
@@ -83,3 +84,126 @@ class TestStack(unittest.TestCase):
         self.assertIs(slot.settlement, town)
 
         sys.modules[Game.__module__].print = print
+
+    def test_get_land_neighbors(self):
+        game = Game()
+        game.player1.midPos = Pos(3, 2)
+        land = Landscape('wood', Resource.WOOD, 1)
+        land.pos, land.player = Pos(1, 1), game.player1
+        game.mainBoard.set_square(land.pos, land)
+
+        self.assertEqual(game.get_land_neighbors(land), [])
+
+        card = Building('warehouse', Cost(), True, 1, 1)
+        card.pos = Pos(0, 1)  # in
+        game.mainBoard.set_square(card.pos, card)
+
+        self.assertEqual(len(game.get_land_neighbors(land)), 1)
+        self.assertEqual(game.get_land_neighbors(land)[0].name, 'warehouse')
+
+        card = Building('mill', Cost(), True, 1, 1)
+        card.pos = Pos(2, 0) # in
+        game.mainBoard.set_square(card.pos, card)
+
+        card = Building('church', Cost(), True, 1, 1)
+        card.pos = Pos(2, 1) # in
+        game.mainBoard.set_square(card.pos, card)
+
+        card = Knight('konrad', Cost(), 1, 1)
+        card.pos = Pos(0, 3) # out
+        game.mainBoard.set_square(card.pos, card)
+
+        card = Fleet('fleet_wood', Cost(), Resource.WOOD, 1)
+        card.pos = Pos(2, 4) # out
+        game.mainBoard.set_square(card.pos, card)
+
+        self.assertEqual(len(game.get_land_neighbors(land)), 3)
+        self.assertEqual(sorted(list(map(lambda x: x.name, game.get_land_neighbors(land)))), ['church', 'mill', 'warehouse'])
+
+        land = Landscape('brick', Resource.BRICK, 1)
+        land.pos, land.player = Pos(1, 3), game.player1
+
+        self.assertEqual(len(game.get_land_neighbors(land)), 2)
+        self.assertEqual(sorted(list(map(lambda x: x.name, game.get_land_neighbors(land)))), ['fleet_wood', 'konrad'])
+
+    def test_protected_by_warehouse(self):
+        game = Game()
+        game.player1.midPos = Pos(3, 2)
+
+        land = Landscape('wood', Resource.WOOD, 1)
+        land.pos, land.player = Pos(1, 1), game.player1
+
+        self.assertFalse(game.is_protected_by_warehouse(land))
+        self.assertEqual(game.get_neighboring_warehouse_cnt(land), 0)
+
+        card = Building('warehouse', Cost(), True, 1, 1)
+        card.pos = Pos(0, 0)  # in
+        game.mainBoard.set_square(card.pos, card)
+
+        self.assertTrue(game.is_protected_by_warehouse(land))
+        self.assertEqual(game.get_neighboring_warehouse_cnt(land), 1)
+
+        card = Building('warehouse', Cost(), True, 1, 1)
+        card.pos = Pos(2, 1)  # in
+        game.mainBoard.set_square(card.pos, card)
+
+        card = Building('warehouse', Cost(), True, 1, 1)
+        card.pos = Pos(0, 2)  # out
+        game.mainBoard.set_square(card.pos, card)
+
+        self.assertTrue(game.is_protected_by_warehouse(land))
+        self.assertEqual(game.get_neighboring_warehouse_cnt(land), 2)
+
+    def test_land_yield(self):
+        game = Game()
+        p = game.player1
+
+        p.landscapeCards = [
+            Landscape('wood', Resource.WOOD, 1),
+            Landscape('gold', Resource.GOLD, 2),
+            Landscape('rock', Resource.ROCK, 3),
+            Landscape('wood', Resource.WOOD, 1),
+            Landscape('brick', Resource.BRICK, 1),
+            Landscape('wood', Resource.WOOD, 1)
+        ]
+
+        for land, pos in zip(p.landscapeCards, [(1, 1), (3, 1), (5, 1), (1, 3), (3, 3), (5, 3)]):
+            land.pos, land.player = Pos(*pos), p
+            game.mainBoard.set_square(land.pos, land)
+
+        b = Building('sawmill', Cost(), False, 0, 0)
+        b.pos = Pos(2, 0)
+        game.mainBoard.set_square(b.pos, b)
+
+        b = Building('sawmill', Cost(), False, 0, 0)
+        b.pos = Pos(4, 3)
+        game.mainBoard.set_square(b.pos, b)
+
+        self.assertEqual(list(map(lambda l: game.get_land_yield(l), p.landscapeCards)), [2, 1, 1, 1, 1, 2])
+
+        game.land_yield(2)
+        self.assertEqual(list(map(lambda l: l.resourcesHeld, p.landscapeCards)), [0, 1, 0, 0, 0, 0])
+        game.land_yield(2)
+        game.land_yield(2)
+        self.assertEqual(list(map(lambda l: l.resourcesHeld, p.landscapeCards)), [0, 3, 0, 0, 0, 0])
+        game.land_yield(2)
+        self.assertEqual(list(map(lambda l: l.resourcesHeld, p.landscapeCards)), [0, 3, 0, 0, 0, 0])
+        game.land_yield(1)
+        self.assertEqual(list(map(lambda l: l.resourcesHeld, p.landscapeCards)), [2, 3, 0, 1, 1, 2])
+        game.land_yield(1)
+        self.assertEqual(list(map(lambda l: l.resourcesHeld, p.landscapeCards)), [3, 3, 0, 2, 2, 3])
+        game.land_yield(4)
+        self.assertEqual(list(map(lambda l: l.resourcesHeld, p.landscapeCards)), [3, 3, 0, 2, 2, 3])
+
+#    def test_card_event_rich_year(self):
+#        game = Game()
+#        p1, p2 = game.player1, game.player2
+#
+#        p1.landscapeCards = [
+#            Landscape('wood', Resource.WOOD, 1),
+#            Landscape('rock', Resource.ROCK, 1),
+#            Landscape('gold', Resource.GOLD, 1)
+#        ]
+#
+#        game.card_event_rich_year()
+
