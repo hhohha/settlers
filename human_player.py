@@ -6,7 +6,7 @@ from config import MAX_LAND_RESOURCES
 from custom_types import Pile
 from enums import Button, DiceEvent, Resource
 from player import Player
-from util import Pos, MouseClick, Cost, is_next_to
+from util import Pos, MouseClick, Cost, is_next_to, display_cards_on_board
 from card import Landscape, Playable, Path, Town, Village, Settlement, Action, SettlementSlot, Buildable, Knight, Fleet, \
     Building
 
@@ -90,7 +90,7 @@ class HumanPlayer(Player):
 
     def select_card_from_choice(self, pile: Pile) -> Playable:
         if self.cardsVisible:
-            self.game.display_cards_on_board(pile, self.game.choiceBoard)
+            display_cards_on_board(pile, self.game.choiceBoard)
 
         click: MouseClick = self._get_filtered_click(ClickFilter(
             board=self.game.choiceBoard,
@@ -255,7 +255,7 @@ class HumanPlayer(Player):
         return self.ok_or_cancel()
 
     def select_new_land(self) -> Landscape:
-        self.game.display_cards_on_board(self.game.landscapeCards, self.game.choiceBoard)
+        display_cards_on_board(self.game.landscapeCards, self.game.choiceBoard)
 
         click = self._get_filtered_click(ClickFilter(
             board=self.game.choiceBoard,

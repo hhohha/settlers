@@ -1,11 +1,12 @@
 from __future__ import annotations
 from abc import ABC
 from typing import Optional, List, TYPE_CHECKING
-from enums import Resource
-from util import Cost, Pos
+from util import Cost
+
 if TYPE_CHECKING:
     from player import Player
-
+    from enums import Resource
+    from util import Pos
 
 class Card(ABC):
     def __init__(self, name: str):

@@ -1,7 +1,6 @@
 import unittest, sys
 from unittest.mock import MagicMock
-
-from card import Action, Fleet, Knight, Building, Town, SettlementSlot, Landscape
+from card import Action, Fleet, Knight, Building, Town, SettlementSlot, Landscape, Village
 from enums import Resource
 from util import Cost, Pos
 
@@ -195,15 +194,18 @@ class TestStack(unittest.TestCase):
         game.land_yield(4)
         self.assertEqual(list(map(lambda l: l.resourcesHeld, p.landscapeCards)), [3, 3, 0, 2, 2, 3])
 
-#    def test_card_event_rich_year(self):
-#        game = Game()
-#        p1, p2 = game.player1, game.player2
-#
-#        p1.landscapeCards = [
-#            Landscape('wood', Resource.WOOD, 1),
-#            Landscape('rock', Resource.ROCK, 1),
-#            Landscape('gold', Resource.GOLD, 1)
-#        ]
-#
-#        game.card_event_rich_year()
+    def test_remove_card_from_board(self):
+        game = Game()
 
+        village = Village(Pos(1, 2), game.player1)
+        card = Building('mill', Cost(), False, 0, 0)
+        card.pos, card.player, card.settlement = Pos(1, 1), game.player1, village
+        village.cards.append(card)
+
+        game.mainBoard.set_square(village.pos, village)
+        game.mainBoard.set_square(card.pos, card)
+
+        game.remove_card_from_board(card)
+        self.assertEqual(len(village.cards), 1)
+        self.assertTrue(isinstance(village.cards[0], SettlementSlot))
+        self.assertIs(village.cards[0].settlement, village)

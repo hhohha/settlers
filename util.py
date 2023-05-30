@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Union, Tuple, TYPE_CHECKING, Dict, Type
+from typing import Union, Tuple, TYPE_CHECKING, Dict, Type, List
 from dataclasses import dataclass
 from random import randint
 import config
@@ -7,7 +7,8 @@ from config import RESOURCE_LIST
 from enums import DiceEvent, Resource
 if TYPE_CHECKING:
     from board import Board
-    from card import Knight, Fleet, Landscape
+    from card import Knight, Fleet, Landscape, Playable
+    Pile = List[Playable]
 
 MILLS_EFFECTS: Dict[Resource, str] = {
     Resource.GRAIN: 'mill',
@@ -17,6 +18,12 @@ MILLS_EFFECTS: Dict[Resource, str] = {
     Resource.WOOD: 'sawmill'
 }
 
+
+# TODO - unit test
+def display_cards_on_board(pile: Pile | List[Landscape], board: Board) -> None:
+    board.clear()
+    for idx, card in enumerate(pile):
+        board.set_square(board.to_pos(idx), card)
 
 # TODO - unit test
 def is_land_protected_from_plaque(self, land: Landscape) -> bool:

@@ -9,7 +9,7 @@ from card import Action, Buildable, Building, Playable, SettlementSlot, Village,
 from config import BROWSE_DISCOUNT_BUILDINGS, CARDS_INCREASING_HAND_CNT, STOLEN_AMBUSH_RESOURCES, ADVANCE_BUILDINGS, \
     MAX_LAND_RESOURCES
 from enums import Resource
-from util import Pos, Cost, DEFENCE_CARDS, is_protected_from_civil_war
+from util import Pos, Cost, DEFENCE_CARDS, is_protected_from_civil_war, display_cards_on_board
 
 if TYPE_CHECKING:
     from card import Landscape
@@ -213,7 +213,7 @@ class Player(ABC):
         self.pay(card.cost)
 
     def refresh_hand_board(self) -> None:
-        self.game.display_cards_on_board(self.cardsInHand, self.handBoard)
+        display_cards_on_board(self.cardsInHand, self.handBoard)
 
     def build_infrastructure(self, infraType: Type[Town | Village | Path]) -> None:
         if self.game.infraCardsLeft[infraType] < 1:
@@ -274,7 +274,7 @@ class Player(ABC):
     ####################################################################################################################
 
     def play_action_card_spy(self) -> None:
-        self.game.display_cards_on_board(self.opponent.cardsInHand, self.game.choiceBoard)
+        display_cards_on_board(self.opponent.cardsInHand, self.game.choiceBoard)
         if not self.spy_can_steal_card():
             self.game.display.print_msg('opponent has no unit to steal')
             self.wait_for_ok()
