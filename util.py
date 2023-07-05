@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 MILLS_EFFECTS: Dict[Resource, str] = {
     Resource.GRAIN: 'mill',
-    Resource.BRICK: 'brickyard',
+    Resource.BRICK: 'brick_mill',
     Resource.ROCK: 'steel_mill',
     Resource.SHEEP: 'spinning_mill',
     Resource.WOOD: 'sawmill'

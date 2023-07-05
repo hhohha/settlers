@@ -39,14 +39,53 @@ class ComputerPlayer(Player):
         for idx, pile in enumerate(self.game.cardPiles):
             if len(pile) > maxLen and pile is not unavailablePile:
                 maxLen, resIdx = len(pile), idx
-        print('')
         return self.game.cardPiles[resIdx]
 
     def pick_starting_cards(self) -> None:
-        # TODO - setup card priority
+        # priorities: warehouse, mills 5
+        #             cloister, scout 4
+        #             knight 4 - cost (i.e. 3, 2 or 1)
+        #             fleet 2
+        #             smithy 1
+        #             red building, actions (except scout) 0
+
         pile = self.select_pile()
+        priorities: dict[Playable, int] = {}
+        for card in pile:
+            if card.name.endswith('mill') or card.name == 'warehouse':
+                priorities[card] = 5
+            elif card.name in ['cloister', 'scout']:
+                priorities[card] = 4
+            elif card.name in ['smithy']:
+                priorities[card] = 1
+            elif isinstance(card, Knight):
+                # knights are ok but we prefer cheaper ones
+                priorities[card] = max(4 - card.cost.total(), 1)
+            elif isinstance(card, Fleet):
+                priorities[card] = 2
+            else:
+                priorities[card] = 0
+
         while len(self.cardsInHand) < self.cardsInHandDefaultCnt:
-            self.cardsInHand.append(pile.pop())
+            # take a card with the highest priority
+            maxidx, maxprio = -1, -1
+            for idx, card in enumerate(pile):
+                if priorities[card] > maxprio:
+                    maxidx, maxprio = idx, priorities[card]
+            assert maxidx != -1 and maxprio != -1
+            self.cardsInHand.append(pile.pop(maxidx))
+
+            # but we don't want any card twice (different mills are not the same card) or two knights or fleets
+            # when we take a card decrease priority of all cards of the same type
+            chosenCard = self.cardsInHand[-1]
+            for card in pile:
+                if card.name == chosenCard.name:
+                    priorities[card] -= 2
+                elif isinstance(card, Knight) and isinstance(chosenCard, Knight):
+                    priorities[card] -= 2
+                elif isinstance(card, Fleet) and isinstance(chosenCard, Fleet):
+                    priorities[card] -= 2
+
         self.refresh_hand_board()
 
     def throw_dice(self) -> None:
